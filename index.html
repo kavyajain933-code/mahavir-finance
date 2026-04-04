@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Mahavir Finance</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAIKklEQVR4nG1WW2wU5xU+55/Z2Z29+7JrbK+9BtvcirmkNCVtFSCKGhHSQPqSNqX0oUr6UpRK7UOkNmoe2qqqIvWmSGl6SSWqRhTaUAhRAMcYciHGwcFgwBd8WdvrXa/ttdf2zn3+04eZ9a6j/g8zo39mvnPOd75z/oOqtoKIAICAgOA+OE/utXLR/9snZ4eAADgAEBEAICIRiVj+ikrQrPwvAhAQEQEiIqIAAESciBDI8WzNHgIAIhFghQMiIJZeASICMce4a5U4oSB5PAAAoIOtAgCIEoAEgIZlArcZY0SECEQIBAgEgOTGCuIaFsI6dASyOUiSD6g4NjLw4ae3B0am5pc1snltxL9za8tXHtrW2r4VxIBh6KwccyV7hIioG8WKBKATCQBxQsnjSU/eff2tCxeu9ZskJusiDbEIAWbmCqls3sPgqf0dP3j2ycbkDsM0GTqZcPgnQHKSgbpRRHTCcqARETgHj0e8fr3rp797a37FPP6Nrx5+dHcykWBmARBsITw5nb7w0Z2T/71aE5J++aPvPPLIAdO0GLq8EJEjBwICw1AMUzUMzTA009RNUzdMnYhu9HQ9dPi5o98/cf9er706QaQT0dTw9anh60REZPCVicHBvm++8OKew8/d6OkiIsPULUt3QQzNMDTdUNAw1BJDLn1MkBayI8df+q3I8M+/OOEXrdnp0WDTvnc7r+RSdwAh3txx+PHHiumeWH1S5b7nX/6jrusnf/OT2vrN3NYRmUsTEQAxh3cgV0iAjKF58u1LY1MLP3vhSETUJyZnLI6qqsmB8M5du3fu3C0HIqqmGjZMTM6EBOXl54+kZov/OHuZoQUorJM4ICul25WwKIj53NTZrk+PHNyze0tydOhTC71FTU/WBZ89sCnZEEs2xL91cFNzPFRUNFOQx4Zu7tqSPHJg99mu3nxuUhREInK5IIDKmlqTbv+94VxBP7i3TV0YzVoNM8VQa0vr8uJsdqH4h3fGf39uLDNfLCxmWze1ZYvhjFlfnBt8/EttuYJ56+5QqazLYmVl8boyheHxdNgvbm9rWdaFsUwhJmQWlpY8TJvO68/s73jmQMd0XpeYnl8qxIT0eKawakpbW1uiQWloPL2usBFdA2uVjYgAlF8uhoJBUucE5KI3MDKzQsTkSLOpLucLxXyhaCpLciTBCUbSq6I3JCCROhsKBPKFVSj3DxdQLHe60qaAaJmmJAezs9nbY/q3H22oqw2nFyES33x0bwMAjE9l0ktYVxNpT9I/r6U74lKisdG0TFFYB+1oSVwjDRGJEwAk6msXVjTFkrzRjVH/3YQ3nRq6z6vtbNHn884xxqbnV+vV+cJCT6IqWiVzX1WLalF+RUtsiDvFvIbuUFRpFgBgR3uLrum3hlKh2MZNiUZvKBGtaZYDVdOZXDQcln2+yXRWDlZFY0lfOJFsrA/HW/uHpzVF+UJbsqyetWZX0ZvAaRnbtmzZtaXp9KWeeKxu1RRq2w7M5Zdu3BxSNeWN0xcDfl9Q9t4ZnXt079eqq6NqX/fU+L1T7328Y3Ni+9YtBMDKPZzWydTZ5dz2yNXHntzXNzzT+VHPTGbqSu/gX/9zpSrs3xCrkb1ebpNH9ETD/r+9ffVK7/30zPTlDz7pG545dujLkr+G2/bnjqPPRYDOafLUE0903hg4f21g/xfNXK6huS4I3AwHvHu2tawqqigIQGai1p+bTReXJq/2Dn794fanDx3iRIjrEgAA5b7hLEQEskVv+JUfHm9trLl6cyg1PmKpKxOjd+dnHshM3RBm+exo6sGAqS6lJh503xjc1FD18xPHRG8EiCMilTqqA4uGoblKrVicE2PC4tz4S6+++WAqf/SJ/UVNl0gTJBmZYOmKQZ6QX/73e92bm6p/9ePvVcdbAYhz23HfWWUDlegAYHPuET0ulWSMp/M+kWu26PNK+cUlURBrq6PLRUUkXbOF5nhIkkOqqgGQX5Y5tyr5AADmxgJERJZtMyb85cz7b5zpHJ6YefHXbwJKr53qrN/QcL67N5NbeOfarc2bGl8/fWkkNXPh+lBVOPDav7pfP3XxT2c6X/37+Y9v3UcUbJuvoQMAc+9l4jDZELt0/fbJc1f8sjQyke4fGHn3gz7d5J0f9s/ML94fm+7puz89uziZyZ19/8beHa1FVV9cXu0fmYqGAuAOL7AWB+q64jDk4EuS5/1PbqcyCwiQX1Y31ITbG2OXegY8HvHpA3vPX72ZiEW3bWzs6r3XVF9r2fbDHe2nL/cEZElRtI72psP79xqGXikk1DRlLcnOVdWNkF8GFHLZlCzLvlBt39Bke2PtZw8yLXVRxbCb6qK3RtKt9VXx6oitLamq4g/HfZJQWFGCfp9zHjhdh4BQ01YRWWk0QgBgDBGFpezg1O1zTdsfK/q3d/WPxiKyZlhzy8r0/EqiNqwbVmo2/8p3H9eyN9OD3Rt3Hw3FNwPZNq849oEICFV9BYG5QwuWC5sxoZAbkQNRy1Nz8bPR+uqgohmc80Qsejc1u2djPDW3um9bs2guKKv5SKzdGfdKfxMBBwICworZ1ImDGPMY2lIhc08KVHFuBSP1emGa2wYxUUCwLUPyyuQJh4LhXGYcEAWPz7bMUFXSG6iybaukGTcWVNTlcqG5RxsDzm1T4dxigiSIXts2uW06nxDZjHkYEzggtzQEAGCAJIheJojkuF0SEQBgUSm4JVae7hAQEVmpFXIEBm6UUBpI1uZnx18i4kQcyhy5aShP1y5liASEAMRtQNuZaAhsKDXzEgMIAJy7I2LZ73WLAOB/XhmPn6ee5s8AAAAASUVORK5CYII="/>
+  <link rel="stylesheet" href="style.css?v=33"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo" style="background:transparent;padding:0;overflow:hidden"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAIAAABuYg/PAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAJ1UlEQVR4nJVXWXBb1Rn+/3Pv1WpLsiVZshXv2feUJIRQpgkhQNYuMFO2h85QXmhhpsNDZ2g7HTp0pp0OnXa6QGDKQ0vYCoVAAg60iR3aGJM4MU5sJ14S75JlWaulu5+/D1eS5dCXntHoXN17df7zfef7N5SVHAAgYvkbABAQAIuX/8cg630CguIHiMhamYjEShsVlljlb6DiWkTWJQJRcUdYuSFcmhCIEIAqFxcREQGpdBcRgRgAIAKV3iTgnFAQbRKr2AQAABgmN02dISGyMo6SOWtntGSshAWLMy3xiQgAxDmIkl1CMguJ8ZmpmXgylc0Tka/K1dgQbIw02p1+k4Np6IxZf7TYsyBAcQJARLECkGUOi2xblojZbFIhPd7R2d3RfbXvejS/uAiCRJwD8WqPZ0t78P7dGw7s/brT16zpOgMOiESEiFQ8EY7AADkRoKrli0QXyWVYop5AkER+6ULnb18788XVm36P/fYta7atbqyrdQOyeDJ3afBGz8BEelHdvrbhR4/de9vOvboBCOaSTAgACLDILqpaoWiFsIgPERE4MUk0T3108vlXTsqK9tjRux499I36hhAwSUmMAZAj0A7cjMbir3949rUPP3M6Hc8+fvDwwcO6ITDg5YMiKskSCDStoGmypimapui6quuqoauarhHR2c5T2w49su+hx3t6ukieXEyMkiET8Wt9nUN9nUScTHlxYYzkmQsX/7Pv4ce3Hnz07NlTRFzXVcNQrdV0XbUWV7UCappcFA+WHYsE0TYz3v/Ez4/lC/Lvn/3+plVN1670hBua5/S6k6feVVITAOioaT58+IGwFI9Fx1ev2z50M/bDX77skIRXn38y0rrVNDTLtyrxMSj6L0LR+wBQQFKOnzg7NBr7wXf3bWwNxGNTGRmQzPlUNlTftGHr7vVb7wjVNyVSWSAzXaD5uZl1zTVPPbR/eDr9+gfnkGRAYZmLIACgWD4u66yISBSF2YnBk+cu3/m1lUfv2T18tavaE1DRWcjF9+w4qLSYiwUFEKtdTntg7dSVDgVchpIcvjp89J59J7r6P+jqfexbexuaNxmGuQSOAJZFiqICEQB6vrwWS6v7b19lLkbBUdcb83g8tdX+1rmpgWxBe/pY71N/vpBZ1OamBqr9zTU+/8Wol+xBPTt+367Vcxm958tr5aUAoMRlhTHryBAZgD44OuUQYceWTZmF2dmFQragNvpIVWWXqA/GxPt3rTtwx7qBOcEl6qqmRryQL8gziXxmYW7Hlo0OCQZGJwE0K6YgIGJREKzMqPXNGAOuTMdToYDPLeoub/1EWgzZEr2DN5ggMUTSUk675LDbSE0yhkwQLg2OBG2JqZzD7a13CWok5J+OpcCU0YptuASGlTEtubZpGiYwZMzMpxNT/ip2aa62zuvwBRplsUFW9HDAXx/0K4ouC/U+f1Od13U5Hqh1QTIxw8w8cdJNDpx/JV+UwlVZMkSEomQTUNVU5gpwUzt9eX7/5tqWiHcxGx+JSzu3765224FoUWkcmZxbG0g113vWZgodffObD9QyV1AzDIfEQBCXEFFRIQxKUdJ6wIkDOlqbQrG0Ep3PhFu2uR3C1kacHL4Yu9Erkvrxv3sno/GZuYWPui4KXImOX5ocvrBlBbrtYqR9ezSejiXzLSsagDmJOKLlUXSrQEpy5ADCpvZGXVUvXB2xe8K1vpra8CpPoC0YWYuiQ1P1FaFg0O+TFQVFezCyzlvX7g+v9Hk9Dm/DxYExTVE2tjcAiER82ekAiLfkYoYAADu2rl/ZHDp5rv/AXf2pbL6mfn11oG1mPtd9+QtJgN+8+p4oiitCNZ/3XQ/s2dG8ZYMoOXL5vomxKyc6L7U11e3ctmFJe1aiIlpCRrRUGXCi2lDr0TvX94/FT3X1JBMzI1Pxl9/pvDoyvrq1wV/jFQXmrXIisJZI3dDY5Cvvdo5MxRfmox91ft4/Fj+ye40/3GYSLRNeJY2IFUmWTALhkW/fv3195I1Pem08+8m5bgKeyhU4J8bYyuYI50QAosAWMnlO9Mm58zbKvN5xYce6yKPfOUQgIJn4VWNUGpX8EvHaurafPvFN0+ADY7NKNrombHOaSSdk67ziznXhB+7e3BZ22ylrM+Kr6gQ1FxscnTEM/pMnjvpD7cR5paXy4qhpSplAa1iPCZjAsLPz45+9eCKxkHr4yH7J7lKyUUY8HGlkyGanJ4AxyV3HDf1v730c8Nc8/+SRvXcfMkwUsBiqKpEQEWqacoslREQUAMjkIDAcGep56f3eep+9va1N40K1nRVUzTB5jadqPiPXuqUrQ0PzOf3pB3c2rdxegmKWAS03psqwzAwC4FQsEfJ7HXbH+Mx8SySoG6aq6S67NDodXxHyXx2ZaGkIIjJRZMl0tmVFuFBQMnlZEIRCoaDpxtq2SKWlMo1lNVr3yDBNxoRfvPTOH944PR1LPPjMC0T0q7+8/8c3TxPicy++NR2L/+nN03V+349/d7y77/qvX/3g+s3ZMz39x94+/Y9Pu19+98xbHeePvf1PxkTDNCulAACMKorWYlYgvm/XpvN9w8c/7Ny6pjk6n9I1tfvytVRmURCkcxeGnA7bZHSecfPMF4MP3nfHcy/+ff3KxtWtjVUup8l5/+j0bRtaK8vFMhgGy/EyRM3QRIb7d230eaubwv63Os4f2bN91+ZVfz3RWe/3PnDv7SITTn926ZnvHVFU1W2XJFFoDAcKspLO5px2adem9u6+YU4EtFwgAKgohcpC38qtyWw+4KsWBCmeyhRyyZam1pHpmK6btdWu6zPJ1jpPQTNXNYf6h6dCNdVMwHCtd25uVnR4AdBXJc3GU+FgDVZoxMqgDKBYwBdvESFCyO9BZLmF8ezQO5i+QtzoGphxuV1dQ9Mcoeva7Kf9E8f/1Tc8l3vhRM/o7AJxU471JgfedEMSUWisD5QsVZJJDJAX245S/iYCTTM4kd0dEN1BjhIytNtsfTcTyUWNA5tN5iMB3435QtDrbAvXTCYVZAIINqkqjDYvEWmaXhGPOGCxqUFZyZWqnWKxhQiIzNRlXc2Jdreh5SWbOydrc4l4JFg7m8gEvC63Q8oVFEWnlkgknUlLAgKZTLQTcUF0CKKDiAMBoUUgB6ujkeUcslJXUUpvjEmanE5HrzDRDkBOT4MooJyaMEEQBYETaGre4fRIdjdz1GiL83I+zZjARBsRr6ppdlYHTVMvtTGlPgsAC3L2f3aCiIyJIjdNRMHKgMgEIE7FGgZLnsktLggBuIXDJM5L4QrKLSERidZUaY+AEIHANHQTAanUKIBpQDnLV547hwohLEXFyihczGe3xt+KZ4gASJXJtSKWL78ov4kWa7fspzj+C3WjnOsAnHvSAAAAAElFTkSuQmCC" style="width:56px;height:56px;object-fit:cover;border-radius:12px;" alt="Logo"/></div>
+    <div class="login-title">Mahavir Finance</div>
+    <div class="login-sub">Loan Management System &nbsp;·&nbsp; <span style="color:var(--gold);font-weight:700">v3.0</span></div>
+    <div id="li-err" class="login-error hidden"></div>
+    <div class="form-group" style="margin-bottom:14px"><label style="color:var(--text2);font-size:0.85rem;font-weight:600">Email</label><input type="email" id="li-email" class="input-field" placeholder="your@email.com" autocomplete="email"/></div>
+    <div class="form-group" style="margin-bottom:20px"><label style="color:var(--text2);font-size:0.85rem;font-weight:600">Password</label><input type="password" id="li-pass" class="input-field" placeholder="••••••••" autocomplete="current-password"/></div>
+    <button class="btn-primary" id="li-btn" onclick="doLogin()" style="width:100%;justify-content:center;padding:12px"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="hidden">
+<div id="sb-overlay"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon" style="background:transparent;padding:0;overflow:hidden"><img src="data:image/png;base64,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" style="width:36px;height:36px;object-fit:cover;border-radius:8px;" alt="Logo"/></div>
+    <div class="brand-text"><div class="brand-name">Mahavir Finance</div><div class="brand-sub">Loan Management</div></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-page="dashboard"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>
+    <a href="#" class="nav-item" data-page="index"><i class="fas fa-table-list"></i><span>Index</span></a>
+    <a href="#" class="nav-item" data-page="new-loan"><i class="fas fa-plus-circle"></i><span>New Loan</span></a>
+    <a href="#" class="nav-item" data-page="topup-loan"><i class="fas fa-arrow-up-right-dots"></i><span>Top-Up Loan</span></a>
+    <a href="#" class="nav-item" data-page="partial-repayment"><i class="fas fa-rotate-left"></i><span>Part Repayment</span></a>
+    <a href="#" class="nav-item" data-page="interest-received"><i class="fas fa-hand-holding-dollar"></i><span>Interest Received</span></a>
+    <a href="#" class="nav-item" data-page="live-loans"><i class="fas fa-bolt"></i><span>Live Loans</span></a>
+    <a href="#" class="nav-item" data-page="closed-loans"><i class="fas fa-lock"></i><span>Closed Loans</span></a>
+    <a href="#" class="nav-item" data-page="favourites"><i class="fas fa-star"></i><span>Favourites</span></a>
+    <a href="#" class="nav-item" data-page="sk-gold"><i class="fas fa-handshake"></i><span>SK Gold</span></a>
+    <a href="#" class="nav-item" data-page="history"><i class="fas fa-clock-rotate-left"></i><span>History</span></a>
+    <a href="#" class="nav-item" data-page="customers"><i class="fas fa-users"></i><span>Customers</span></a>
+    <a href="#" class="nav-item" data-page="settings"><i class="fas fa-gear"></i><span>Settings</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-title" id="sb-email"></div>
+    <button class="btn-footer" onclick="doLogout()" style="width:100%"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+  </div>
+</aside>
+
+<div class="main-wrapper">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger"><i class="fas fa-bars"></i></button>
+    <button class="back-btn" id="back-btn" onclick="goBack()"><i class="fas fa-chevron-left"></i> Back</button>
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <span class="today-date" id="today-date"></span>
+  </header>
+  <main class="content-area">
+
+    <!-- DASHBOARD -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-header"><h1>Overview <span class="gold-dot">•</span></h1></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="dashboard-bottom">
+        <div class="dash-card"><div class="dash-card-title"><i class="fas fa-fire"></i> Recent Activity</div><div id="recent-list"></div></div>
+        <div class="dash-card"><div class="dash-card-title"><i class="fas fa-handshake"></i> SK Gold Summary</div><div id="sk-summary"></div></div>
+      </div>
+    </section>
+
+    <!-- INDEX -->
+    <section class="page" id="page-index">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><h1>Index <span class="gold-dot">•</span></h1><span id="idx-count" style="font-size:0.9rem;color:var(--text3);font-weight:500"></span></div>
+      <div class="toolbar">
+        <input type="text" id="idx-search" placeholder="Search by name / mobile / account..." class="input-field search-bar" oninput="renderIndex()"/>
+        <select id="idx-filter-sk" class="input-field filter-select" onchange="renderIndex()">
+          <option value="all">All Loans</option><option value="sk">Via SK Gold</option><option value="direct">Direct Only</option><option value="other">Other Mediator</option>
+        </select>
+      </div>
+      <div class="idx-legend">
+        <span class="idx-leg-item"><span class="idx-leg-dot sk"></span> SK Gold</span>
+        <span class="idx-leg-item"><span class="idx-leg-dot warn"></span> High interest</span>
+        <span class="idx-leg-item" style="background:rgba(243,156,18,0.1);padding:2px 8px;border-radius:4px"><span class="idx-leg-dot" style="background:#f39c12"></span> Other mediator</span>
+      </div>
+      <div class="idx-table-wrap">
+        <table class="idx-table">
+          <thead><tr>
+            <th class="idx-th">Sr.</th><th class="idx-th">Acc.</th><th class="idx-th">Name</th>
+            <th class="idx-th">Date</th><th class="idx-th">Duration</th><th class="idx-th">Rate</th>
+            <th class="idx-th">Amount</th><th class="idx-th">Int. Due</th>
+            <th class="idx-th" style="color:var(--gold)">Total Owed</th><th class="idx-th">Top-Up / Repaid</th>
+          </tr></thead>
+          <tbody id="idx-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- NEW LOAN -->
+    <section class="page" id="page-new-loan">
+      <div class="page-header"><h1>New Loan <span class="gold-dot">•</span></h1></div>
+      <div class="form-card">
+        <div class="form-section-title"><i class="fas fa-user"></i> Customer</div>
+        <div class="search-existing-row">
+          <input type="text" id="nl-cust-search" placeholder="Search existing customer..." class="input-field" oninput="searchExistingCustomer()"/>
+          <button class="btn-ghost" onclick="searchExistingCustomer()"><i class="fas fa-search"></i></button>
+        </div>
+        <div id="nl-cust-results" class="customer-results-dropdown hidden"></div>
+        <div id="nl-cust-hint" class="existing-customer-hint hidden"></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Customer Name *</label><input type="text" id="nl-name" class="input-field" placeholder="Full name"/></div>
+          <div class="form-group"><label>Mobile <span style="color:var(--text3)">(optional)</span></label><input type="text" id="nl-mobile" class="input-field" maxlength="10" placeholder="10-digit mobile"/></div>
+          <div class="form-group"><label>Account No. <span style="color:var(--text3)">(unique)</span></label><input type="text" id="nl-account" class="input-field" placeholder="Auto-generated if blank"/></div>
+          <div class="form-group"><label>Address <span style="color:var(--text3)">(optional)</span></label><input type="text" id="nl-address" class="input-field"/></div>
+          <div class="form-group full-width"><label>Notes <span style="color:var(--text3)">(optional)</span></label><input type="text" id="nl-notes" class="input-field"/></div>
+        </div>
+        <div class="form-section-title"><i class="fas fa-gem"></i> Loan Details</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Loan Amount (₹) *</label><input type="number" id="nl-amount" class="input-field" placeholder="0"/></div>
+          <div class="form-group"><label>Rate (% / month) *</label><input type="number" id="nl-rate" step="0.1" class="input-field" value="1"/></div>
+          <div class="form-group"><label>Start Date *</label><input type="date" id="nl-start-date" class="input-field"/></div>
+          <div class="form-group"><label>Gold Weight (g)</label><input type="number" id="nl-gold-weight" step="0.01" class="input-field"/></div>
+          <div class="form-group"><label>Gold Description</label><input type="text" id="nl-gold-desc" class="input-field" placeholder="e.g. Necklace 22kt"/></div>
+          <div class="form-group">
+            <label>Via / Source</label>
+            <select id="nl-via-sk" class="input-field" onchange="toggleOtherSourceField('nl')">
+              <option value="sk">Via SK Gold</option><option value="direct">Direct Customer</option><option value="other">Other Mediator</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="nl-other-name-group"><label>Mediator Name *</label><input type="text" id="nl-other-name" class="input-field" placeholder="e.g. Ramesh Broker"/></div>
+          <div class="form-group full-width" style="background:var(--gold-faint);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <label><i class="fas fa-calendar-check" style="color:var(--gold)"></i> Interest Tracking From <span style="color:var(--text3)">(optional)</span></label>
+            <input type="date" id="nl-track-date" class="input-field"/>
+            <small class="field-hint">Leave blank to track from Start Date. Set to today for historical loans.</small>
+          </div>
+          <div class="form-group full-width">
+            <label><i class="fas fa-camera" style="color:var(--gold)"></i> Gold Photos <span style="color:var(--text3)">(optional, unlimited)</span></label>
+            <div class="image-upload-area">
+              <div class="image-upload-btn" onclick="showImgOptions('nl')"><i class="fas fa-camera"></i> Add / Take Photo</div>
+              <input type="file" id="nl-img-input" accept="image/*" capture="environment" multiple style="display:none" onchange="handleImgSelect('nl',this)"/>
+              <div class="image-preview-grid" id="nl-img-preview"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="saveNewLoan()"><i class="fas fa-save"></i> Save Loan</button>
+          <button class="btn-ghost" onclick="clearNewLoan()"><i class="fas fa-times"></i> Clear</button>
+        </div>
+        <div id="nl-msg" class="success-msg hidden"></div>
+      </div>
+    </section>
+
+    <!-- TOP-UP -->
+    <section class="page" id="page-topup-loan">
+      <div class="page-header"><h1>Top-Up Loan <span class="gold-dot">•</span></h1></div>
+      <div class="form-card">
+        <div class="form-group" style="margin-bottom:4px"><label>Search Active Loan</label><input type="text" id="tu-search" placeholder="Name / mobile / account..." class="input-field" oninput="searchActiveLoans('tu')"/><div id="tu-loan-results" class="customer-results-dropdown hidden"></div></div>
+        <div id="tu-selected-loan" class="hidden"></div>
+        <div id="tu-form" class="hidden">
+          <div class="form-grid">
+            <div class="form-group"><label>Top-Up Amount (₹) *</label><input type="number" id="tu-amount" class="input-field" placeholder="0"/></div>
+            <div class="form-group"><label>Date *</label><input type="date" id="tu-date" class="input-field"/></div>
+            <div class="form-group full-width"><label>Notes</label><input type="text" id="tu-notes" class="input-field"/></div>
+            <div class="form-group full-width">
+              <label><i class="fas fa-camera" style="color:var(--gold)"></i> Additional Gold Photos</label>
+              <div class="image-upload-area"><div class="image-upload-btn" onclick="showImgOptions('tu')"><i class="fas fa-camera"></i> Add / Take Photo</div><input type="file" id="tu-img-input" accept="image/*" capture="environment" multiple style="display:none" onchange="handleImgSelect('tu',this)"/><div class="image-preview-grid" id="tu-img-preview"></div></div>
+            </div>
+          </div>
+          <div class="form-actions"><button class="btn-primary" onclick="saveTopUp()"><i class="fas fa-save"></i> Save Top-Up</button></div>
+          <div id="tu-msg" class="success-msg hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PARTIAL REPAYMENT -->
+    <section class="page" id="page-partial-repayment">
+      <div class="page-header"><h1>Partial Repayment <span class="gold-dot">•</span></h1></div>
+      <div class="form-card">
+        <div class="info-banner"><i class="fas fa-info-circle"></i> Customer returning <strong>part of the principal</strong> — not closing the loan. Future interest calculated on new lower amount.</div>
+        <div class="form-group" style="margin-bottom:4px"><label>Search Active Loan</label><input type="text" id="pr-search" placeholder="Name / mobile / account..." class="input-field" oninput="searchActiveLoans('pr')"/><div id="pr-loan-results" class="customer-results-dropdown hidden"></div></div>
+        <div id="pr-selected-loan" class="hidden"></div>
+        <div id="pr-form" class="hidden">
+          <div class="form-grid">
+            <div class="form-group"><label>Current Outstanding (₹)</label><input type="number" id="pr-outstanding" class="input-field" readonly/></div>
+            <div class="form-group"><label>Repayment Amount (₹) *</label><input type="number" id="pr-amount" class="input-field" oninput="calcPrRemaining()"/></div>
+            <div class="form-group"><label>Date *</label><input type="date" id="pr-date" class="input-field"/></div>
+            <div class="form-group"><label>Balance After (₹)</label><input type="number" id="pr-remaining" class="input-field" readonly/></div>
+            <div class="form-group full-width"><label>Notes</label><input type="text" id="pr-notes" class="input-field" placeholder="Optional note..."/></div>
+          </div>
+          <div class="form-actions"><button class="btn-blue" onclick="savePartialRepayment()"><i class="fas fa-rotate-left"></i> Record Repayment</button></div>
+          <div id="pr-msg" class="success-msg hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTEREST RECEIVED -->
+    <section class="page" id="page-interest-received">
+      <div class="page-header"><h1>Interest Received <span class="gold-dot">•</span></h1></div>
+      <div class="form-card">
+        <div class="form-group" style="margin-bottom:4px"><label>Search Active Loan</label><input type="text" id="ir-search" placeholder="Name / mobile / account..." class="input-field" oninput="searchActiveLoans('ir')"/><div id="ir-loan-results" class="customer-results-dropdown hidden"></div></div>
+        <div id="ir-selected-loan" class="hidden"></div>
+        <div id="ir-form" class="hidden">
+          <div class="interest-calc-box" id="ir-calc-box"></div>
+          <div class="form-grid">
+            <div class="form-group"><label>Payment Date *</label><input type="date" id="ir-date" class="input-field" onchange="recalcInterest()"/></div>
+            <div class="form-group"><label>Period From</label><input type="date" id="ir-from-date" class="input-field" onchange="recalcInterest()"/></div>
+            <div class="form-group"><label>Period To</label><input type="date" id="ir-to-date" class="input-field" onchange="recalcInterest()"/></div>
+            <div class="form-group"><label>Calculated (₹)</label><input type="number" id="ir-calculated" class="input-field" readonly/></div>
+            <div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="ir-received" class="input-field" oninput="calcDiscount()"/></div>
+            <div class="form-group"><label>Discount (₹)</label><input type="number" id="ir-discount" class="input-field" readonly placeholder="0"/></div>
+            <input type="hidden" id="ir-shortfall" value="0"/>
+            <div class="form-group full-width"><label>Notes</label><input type="text" id="ir-notes" class="input-field"/></div>
+          </div>
+          <div class="gap-choice-panel hidden" id="ir-gap-warn">
+            <div class="gap-choice-title"><i class="fas fa-exclamation-circle"></i> Customer paid less — <strong id="ir-gap-amt"></strong> gap. What is this?</div>
+            <div class="gap-choice-options">
+              <label class="gap-option"><input type="radio" name="ir-gap" value="paylater" checked onchange="setGapType(this.value)"/><div class="gap-option-box"><div class="gap-option-title"><i class="fas fa-clock"></i> Pay Later</div><div class="gap-option-desc">Customer will pay later. Carries forward to next calculation.</div></div></label>
+              <label class="gap-option"><input type="radio" name="ir-gap" value="discount" onchange="setGapType(this.value)"/><div class="gap-option-box"><div class="gap-option-title"><i class="fas fa-tag"></i> Discount / Write Off</div><div class="gap-option-desc">You are letting go of this amount. Recorded as a discount.</div></div></label>
+            </div>
+          </div>
+          <div class="form-actions"><button class="btn-primary" onclick="saveInterestReceived()"><i class="fas fa-save"></i> Record Payment</button></div>
+          <div id="ir-msg" class="success-msg hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE LOANS -->
+    <section class="page" id="page-live-loans">
+      <div class="page-header"><h1>Live Loans <span class="gold-dot">•</span></h1></div>
+      <div class="toolbar">
+        <input type="text" id="ll-search" placeholder="Search loans..." class="input-field search-bar" oninput="renderLiveLoans()"/>
+        <select id="ll-filter-sk" class="input-field filter-select" onchange="renderLiveLoans()">
+          <option value="all">All Loans</option><option value="sk">Via SK Gold</option><option value="direct">Direct</option><option value="other">Other Mediator</option>
+        </select>
+        <button class="btn-ghost" onclick="renderLiveLoans()"><i class="fas fa-rotate"></i></button>
+      </div>
+      <div id="live-loans-grid" class="loans-grid"></div>
+    </section>
+
+    <!-- CLOSED LOANS -->
+    <section class="page" id="page-closed-loans">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><h1><i class="fas fa-lock" style="color:var(--red);margin-right:8px"></i>Closed Loans <span class="gold-dot">•</span></h1><span id="closed-count" style="font-size:0.9rem;color:var(--text3)"></span></div>
+      <div class="toolbar"><input type="text" id="cl-search-inp" placeholder="Search closed loans..." class="input-field search-bar" oninput="renderClosedLoans()"/></div>
+      <div id="closed-loans-grid" class="closed-loans-grid"></div>
+    </section>
+
+    <!-- FAVOURITES -->
+    <section class="page" id="page-favourites">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><h1><i class="fas fa-star" style="color:var(--gold);margin-right:8px"></i>Favourites <span class="gold-dot">•</span></h1><span id="fav-count" style="font-size:0.9rem;color:var(--text3)"></span></div>
+      <div id="fav-grid" class="loans-grid"></div>
+    </section>
+
+    <!-- SK GOLD -->
+    <section class="page" id="page-sk-gold">
+      <div class="page-header"><h1>SK Gold Mediator <span class="gold-dot">•</span></h1></div>
+      <div class="sk-stats-row" id="sk-stats"></div>
+      <div class="form-card">
+        <div class="form-section-title"><i class="fas fa-plus"></i> Record Settlement</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="sk-amount" class="input-field" placeholder="0"/></div>
+          <div class="form-group"><label>Date *</label><input type="date" id="sk-date" class="input-field"/></div>
+          <div class="form-group full-width"><label>Notes</label><input type="text" id="sk-notes" class="input-field"/></div>
+        </div>
+        <div class="form-actions"><button class="btn-primary" onclick="saveSkPayment()"><i class="fas fa-save"></i> Record Settlement</button></div>
+        <div id="sk-msg" class="success-msg hidden"></div>
+      </div>
+      <div class="form-card" style="margin-top:16px"><div class="form-section-title"><i class="fas fa-list"></i> Settlement History</div><div id="sk-history"></div></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="page" id="page-history">
+      <div class="page-header"><h1>History <span class="gold-dot">•</span></h1></div>
+      <div class="toolbar">
+        <input type="text" id="hist-search" placeholder="Search by name, amount, note..." class="input-field search-bar" oninput="renderHistory()"/>
+        <select id="hist-filter" class="input-field filter-select" onchange="renderHistory()">
+          <option value="all">All Types</option><option value="loan">New Loan</option><option value="topup">Top-Up</option>
+          <option value="partial_repayment">Partial Repayment</option><option value="interest">Interest</option>
+          <option value="closure">Closure</option><option value="sk_payment">SK Payment</option>
+        </select>
+      </div>
+      <div id="hist-timeline" class="timeline"></div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section class="page" id="page-customers">
+      <div class="page-header"><h1>Customers <span class="gold-dot">•</span></h1></div>
+      <div class="toolbar">
+        <input type="text" id="cust-search" placeholder="Search customers..." class="input-field search-bar" oninput="renderCustomers()"/>
+        <button class="btn-ghost" onclick="selectAllCustomers()"><i class="fas fa-check-double"></i> Select All</button>
+        <button class="btn-gold" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
+      </div>
+      <div id="customers-list" class="customers-list"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="page-settings">
+      <div class="page-header"><h1>Settings <span class="gold-dot">•</span></h1></div>
+      <div class="settings-card">
+        <div class="settings-card-title"><i class="fas fa-user-circle"></i> Account</div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Signed in as</div><div class="settings-row-sub" id="settings-email">—</div></div><button class="btn-ghost" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Sign Out</button></div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-title"><i class="fas fa-database"></i> Data Management</div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Export Backup</div><div class="settings-row-sub">Download all your data as a JSON file.</div></div><button class="btn-ghost" onclick="exportData()"><i class="fas fa-file-export"></i> Export</button></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Import Backup</div><div class="settings-row-sub">Load from a JSON backup file. <strong>Replaces all current data.</strong></div></div><button class="btn-ghost" onclick="importData()"><i class="fas fa-file-import"></i> Import</button></div>
+      </div>
+      <div class="settings-card danger-zone">
+        <div class="settings-card-title"><i class="fas fa-triangle-exclamation"></i> Danger Zone</div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Reset All Data</div><div class="settings-row-sub">Permanently delete every record. <strong>Cannot be undone.</strong></div></div><button class="btn-danger" onclick="resetSoftware()"><i class="fas fa-trash-can"></i> Reset</button></div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-title"><i class="fas fa-star"></i> What's New in v3.0</div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">👥 Per-Account Data</div><div class="settings-row-sub">Each login account has completely separate data. Multiple users can use the app independently.</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">📸 Gold Photo Uploads</div><div class="settings-row-sub">Upload unlimited photos when creating a loan or topping up. View, add and delete from Loan Profile.</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">📄 PDF Statement</div><div class="settings-row-sub">Generate a professional loan statement PDF from any Loan Profile.</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">💬 WhatsApp Sharing</div><div class="settings-row-sub">Share a formatted loan summary directly to WhatsApp from the Loan Profile.</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">💰 Total Owed Column</div><div class="settings-row-sub">Index table now shows Principal + Interest Due for every active loan.</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">⚡ Interactive Dashboard + Apple Animations</div><div class="settings-row-sub">Every dashboard tile clickable. Spring animations on all interactions.</div></div></div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-title"><i class="fas fa-info-circle"></i> About</div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Mahavir Finance</div><div class="settings-row-sub">Loan Management System · <strong style="color:var(--gold)">v3.0</strong> · Firebase + Netlify + Cloudflare</div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><div class="settings-row-label">Website</div><div class="settings-row-sub">mahavirloan.com</div></div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div><!-- app-screen -->
+
+<!-- LOAN MODAL -->
+<div class="modal-overlay hidden" id="loan-modal"><div class="modal-box" id="loan-modal-content"></div></div>
+
+<!-- CLOSE LOAN MODAL -->
+<div class="modal-overlay hidden" id="close-modal">
+  <div class="modal-box">
+    <div class="modal-header"><h2><i class="fas fa-lock"></i> Close Loan</h2><button onclick="closeCloseModal()" class="modal-close"><i class="fas fa-times"></i></button></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Closure Date *</label><input type="date" id="cl-date" class="input-field"/></div>
+      <div class="form-group"><label>Final Interest Paid (₹)</label><input type="number" id="cl-final-interest" class="input-field" placeholder="0"/></div>
+      <div class="form-group"><label>Total Repayment (₹)</label><input type="number" id="cl-repayment" class="input-field"/></div>
+      <div class="form-group"><label>Gold Returned Date</label><input type="date" id="cl-gold-return" class="input-field"/></div>
+      <div class="form-group full-width"><label>Notes</label><input type="text" id="cl-notes" class="input-field"/></div>
+    </div>
+    <div class="form-actions"><button class="btn-danger" onclick="confirmCloseLoan()"><i class="fas fa-lock"></i> Confirm Close</button><button class="btn-ghost" onclick="closeCloseModal()">Cancel</button></div>
+  </div>
+</div>
+
+<script type="module" src="app.js?v=33"></script>
+</body>
+</html>
