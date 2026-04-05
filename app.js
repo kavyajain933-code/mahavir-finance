@@ -2,19 +2,21 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBRg3jp7CHRiaEK2VT6t63HZqgV-94IUQM",
-  authDomain: "mahavir-finance-09.firebaseapp.com",
-  projectId: "mahavir-finance-09",
-  storageBucket: "mahavir-finance-09.firebasestorage.app",
-  messagingSenderId: "1090399504893",
-  appId: "1:1090399504893:web:58e92928a0f63bc0347194"
+  apiKey: "AIzaSyDUNpVHZibSLefk75oxDwZbHgabUMsu9xo",
+  authDomain: "mahavir-finance-5bc9a.firebaseapp.com",
+  projectId: "mahavir-finance-5bc9a",
+  storageBucket: "mahavir-finance-5bc9a.firebasestorage.app",
+  messagingSenderId: "34469980989",
+  appId: "1:34469980989:web:cbad3f39ebf3564faeb354"
 };
 
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+const app      = initializeApp(firebaseConfig);
+const auth     = getAuth(app);
+const db       = getFirestore(app);
+const storage  = getStorage(app);
 
 // ==================== DB ====================
 // Per-user document: data/{uid}
@@ -516,7 +518,7 @@ async function saveNewLoan() {
   const viaSk=document.getElementById('nl-via-sk').value;
   if (viaSk==='other'&&!document.getElementById('nl-other-name').value.trim()) { alert('Enter mediator name'); return; }
   const trackDate=document.getElementById('nl-track-date').value||startDate;
-  const imgs=(_pimg['nl']||[]).map(x=>({id:x.id,data:x.data,createdAt:x.createdAt}));
+  const imgs=(_pimg['nl']||[]).filter(x=>x.url).map(x=>({id:x.id,url:x.url,createdAt:x.createdAt}));
   const loan={id:genId(),customerId:cust.id,amount,rate,startDate,trackingStartDate:trackDate,goldWeight:document.getElementById('nl-gold-weight').value||'',goldDesc:document.getElementById('nl-gold-desc').value.trim(),viaSk,viaOtherName:viaSk==='other'?document.getElementById('nl-other-name').value.trim():'',images:imgs,status:'active',createdAt:new Date().toISOString()};
   db.loans.push(loan);
   db.transactions.push({id:genId(),type:'loan',loanId:loan.id,customerId:cust.id,amount,date:startDate,note:'New loan for '+name,createdAt:new Date().toISOString()});
@@ -629,7 +631,7 @@ async function saveTopUp() {
   const amount=parseFloat(document.getElementById('tu-amount').value); const date=document.getElementById('tu-date').value;
   if(!amount||!date){alert('Fill Amount and Date');return;}
   const db=getDB(); const l=db.loans.find(x=>x.id===_selLoanId);
-  const imgs=(_pimg['tu']||[]).map(x=>({id:x.id,data:x.data,createdAt:x.createdAt}));
+  const imgs=(_pimg['tu']||[]).filter(x=>x.url).map(x=>({id:x.id,url:x.url,createdAt:x.createdAt}));
   db.transactions.push({id:genId(),type:'topup',loanId:_selLoanId,customerId:l.customerId,amount,date,note:document.getElementById('tu-notes').value.trim(),images:imgs,createdAt:new Date().toISOString()});
   await saveDB(db);
   const msg=document.getElementById('tu-msg'); msg.innerHTML=`<i class="fas fa-check-circle"></i> Top-up ${fmtMoney(amount)} saved.`; msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),3000);
@@ -803,7 +805,7 @@ function openLoanModal(loanId) {
   const lmap={loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment'};
   // Build images section
   const allImgs=[...(loan.images||[]),...db.transactions.filter(t=>t.loanId===loanId&&t.type==='topup'&&t.images?.length).flatMap(t=>t.images.map(img=>({...img,_topupDate:t.date})))];
-  const imgsHtml=allImgs.length?`<div class="loan-images-grid">${allImgs.map(img=>`<div class="img-thumb-wrap"><img src="${img.data}" class="img-thumb" onclick="viewImgFull('${img.data}')"/>${img._topupDate?`<div class="img-label">Top-Up ${fmtDate(img._topupDate)}</div>`:''}<button class="img-delete-btn" onclick="deleteLoanImg('${loanId}','${img.id}')"><i class="fas fa-times"></i></button></div>`).join('')}<div class="img-thumb-wrap img-add-btn" onclick="addMoreImgs('${loanId}')"><i class="fas fa-plus" style="font-size:1.5rem;color:var(--text3)"></i><div style="font-size:0.72rem;color:var(--text3);margin-top:4px">Add Photo</div></div></div>`:`<div style="color:var(--text3);font-size:0.85rem;padding:8px 0">No photos. <button class="btn-ghost btn-sm" onclick="addMoreImgs('${loanId}')"><i class="fas fa-camera"></i> Add</button></div>`;
+  const imgsHtml=allImgs.length?`<div class="loan-images-grid">${allImgs.map(img=>{const src=img.url||img.data||'';return `<div class="img-thumb-wrap"><img src="${src}" class="img-thumb" onclick="viewImgFull('${src}')"/>${img._topupDate?`<div class="img-label">Top-Up ${fmtDate(img._topupDate)}</div>`:''}<button class="img-delete-btn" onclick="deleteLoanImg('${loanId}','${img.id}')"><i class="fas fa-times"></i></button></div>`;}).join('')}<div class="img-thumb-wrap img-add-btn" onclick="addMoreImgs('${loanId}')"><i class="fas fa-plus" style="font-size:1.5rem;color:var(--text3)"></i><div style="font-size:0.72rem;color:var(--text3);margin-top:4px">Add Photo</div></div></div>`:`<div style="color:var(--text3);font-size:0.85rem;padding:8px 0">No photos. <button class="btn-ghost btn-sm" onclick="addMoreImgs('${loanId}')"><i class="fas fa-camera"></i> Add</button></div>`;
   document.getElementById('loan-modal-content').innerHTML=`
     <div class="modal-header"><h2><i class="fas fa-file-invoice"></i> Loan Profile</h2><button onclick="closeLoanModal()" class="modal-close"><i class="fas fa-times"></i></button></div>
     <div class="modal-profile-block">
@@ -1054,7 +1056,13 @@ function handleImgSelect(prefix, input) {
 function renderPendingImgs(prefix) {
   const grid=document.getElementById(prefix+'-img-preview'); if(!grid) return;
   const imgs=_pimg[prefix]||[];
-  grid.innerHTML=imgs.map((img,i)=>`<div class="img-thumb-wrap"><img src="${img.data}" class="img-thumb" onclick="viewImgFull('${img.data}')"/><button class="img-delete-btn" onclick="removePendingImg('${prefix}',${i})"><i class="fas fa-times"></i></button></div>`).join('');
+  grid.innerHTML=imgs.map((img,i)=>{
+    const src = img.url || img.data || '';
+    if (img.uploading) {
+      return `<div class="img-thumb-wrap" style="display:flex;align-items:center;justify-content:center;background:var(--bg3)"><i class="fas fa-spinner fa-spin" style="color:var(--gold);font-size:1.2rem"></i></div>`;
+    }
+    return `<div class="img-thumb-wrap"><img src="${src}" class="img-thumb" onclick="viewImgFull('${src}')"/><button class="img-delete-btn" onclick="removePendingImg('${prefix}',${i})"><i class="fas fa-times"></i></button></div>`;
+  }).join('');
 }
 function removePendingImg(prefix,idx){if(_pimg[prefix])_pimg[prefix].splice(idx,1);renderPendingImgs(prefix);}
 function viewImgFull(src) {
@@ -1082,16 +1090,29 @@ async function _doAddImg(loanId, mode) {
   input.onchange=async e=>{
     const db=getDB(); const l=db.loans.find(x=>x.id===loanId); if(!l) return;
     if(!l.images) l.images=[];
-    await Promise.all(Array.from(e.target.files).map(async file=>{const compressed=await compressImg(file,400,400,0.50);l.images.push({id:genId(),data:compressed,createdAt:new Date().toISOString()});}));
-    await saveDB(db); openLoanModal(loanId);
+    showToast('<i class="fas fa-spinner fa-spin"></i> Uploading photos...');
+    await Promise.all(Array.from(e.target.files).map(async file=>{
+      const id=genId();
+      const compressed=await compressImg(file,800,800,0.70);
+      const path=`images/${_uid}/${id}.jpg`;
+      const url=await uploadImgToStorage(compressed, path);
+      l.images.push({id,url,createdAt:new Date().toISOString()});
+    }));
+    await saveDB(db);
+    showToast('<i class="fas fa-check-circle"></i> Photos saved!');
+    openLoanModal(loanId);
   };
   input.click();
 }
 async function deleteLoanImg(loanId,imgId) {
   if(!confirm('Delete this photo?')) return;
   const db=getDB(); const l=db.loans.find(x=>x.id===loanId);
-  if(l?.images) l.images=l.images.filter(i=>i.id!==imgId);
-  db.transactions.forEach(t=>{if(t.images)t.images=t.images.filter(i=>i.id!==imgId);});
+  // Find the URL before deleting
+  let imgUrl = null;
+  if(l?.images) { const img=l.images.find(i=>i.id===imgId); if(img) imgUrl=img.url||img.data; l.images=l.images.filter(i=>i.id!==imgId); }
+  db.transactions.forEach(t=>{if(t.images){const img=t.images.find(i=>i.id===imgId);if(img)imgUrl=img.url||img.data;t.images=t.images.filter(i=>i.id!==imgId);}});
+  // Delete from Firebase Storage if it's a storage URL
+  if(imgUrl && imgUrl.startsWith('https://firebasestorage')) await deleteImgFromStorage(imgUrl);
   await saveDB(db); openLoanModal(loanId);
 }
 
