@@ -82,24 +82,17 @@ async function saveDB(data) {
   _cache = data;
   showSync(true);
   try {
-    // Check size before saving - Firestore limit is 1MB per document
-    const size = new Blob([JSON.stringify(data)]).size;
-    if (size > 900000) {
-      showToast('⚠️ Data too large! Please delete some photos to free up space.');
-      showSync(false);
-      return;
-    }
     await setDoc(userDoc(), data);
-  }
-  catch(e) {
-    console.error('saveDB error:', e);
+  } catch(e) {
+    console.error('saveDB error:', e.code, e.message);
     if (e.message && e.message.includes('maximum allowed size')) {
-      showToast('⚠️ Too many photos! Please delete some photos from loans.');
+      showToast('⚠️ Document too large! Photos should now go to Storage — try refreshing.');
     } else {
-      showToast('⚠️ Save failed — check internet connection');
+      showToast('⚠️ Save failed: ' + e.message);
     }
+  } finally {
+    showSync(false);
   }
-  finally { showSync(false); }
 }
 
 function getDB() { return _cache || { customers:[], loans:[], transactions:[], sk_payments:[] }; }
@@ -1043,9 +1036,18 @@ function compressImg(file, maxW, maxH, quality) {
 }
 
 async function uploadImgToStorage(base64data, path) {
-  const imgRef = ref(storage, path);
-  await uploadString(imgRef, base64data, 'data_url');
-  return await getDownloadURL(imgRef);
+  try {
+    console.log('Uploading to Storage path:', path);
+    const imgRef = ref(storage, path);
+    const snapshot = await uploadString(imgRef, base64data, 'data_url');
+    console.log('Upload successful:', snapshot);
+    const url = await getDownloadURL(imgRef);
+    console.log('Download URL:', url);
+    return url;
+  } catch(e) {
+    console.error('Storage upload error:', e.code, e.message);
+    throw e;
+  }
 }
 
 async function deleteImgFromStorage(url) {
