@@ -1061,9 +1061,20 @@ function handleImgSelect(prefix, input) {
   if(!input.files.length) return;
   if(!_pimg[prefix]) _pimg[prefix]=[];
   Array.from(input.files).forEach(async file=>{
-    // Compress: max 800x800, 70% quality — reduces ~5MB photo to ~80KB
-    const compressed = await compressImg(file, 400, 400, 0.50);
-    _pimg[prefix].push({id:genId(), data:compressed, createdAt:new Date().toISOString()});
+    const id = genId();
+    _pimg[prefix].push({id, data:null, url:null, uploading:true, createdAt:new Date().toISOString()});
+    renderPendingImgs(prefix);
+    try {
+      const compressed = await compressImg(file, 800, 800, 0.70);
+      const path = 'images/' + _uid + '/' + id + '.jpg';
+      const url = await uploadImgToStorage(compressed, path);
+      const item = _pimg[prefix].find(x=>x.id===id);
+      if (item) { item.url = url; item.uploading = false; }
+    } catch(e) {
+      console.error('Upload failed:', e);
+      showToast('⚠️ Photo upload failed — check Storage rules');
+      _pimg[prefix] = _pimg[prefix].filter(x=>x.id!==id);
+    }
     renderPendingImgs(prefix);
   });
   input.value='';
