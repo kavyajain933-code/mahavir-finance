@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getStorage, ref, refFromURL, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDUNpVHZibSLefk75oxDwZbHgabUMsu9xo",
@@ -1052,10 +1052,12 @@ async function uploadImgToStorage(base64data, path) {
 
 async function deleteImgFromStorage(url) {
   try {
-    const imgRef = ref(storage, url);
+    // Use refFromURL for full https:// URLs, ref() for paths
+    const imgRef = url.startsWith('https://') ? refFromURL(storage, url) : ref(storage, url);
     await deleteObject(imgRef);
+    console.log('Deleted from storage:', url);
   } catch(e) {
-    console.warn('Could not delete from storage:', e);
+    console.warn('Could not delete from storage:', e.code, e.message);
   }
 }
 
@@ -1092,7 +1094,14 @@ function renderPendingImgs(prefix) {
     return `<div class="img-thumb-wrap"><img src="${src}" class="img-thumb" onclick="viewImgFull('${src}')"/><button class="img-delete-btn" onclick="removePendingImg('${prefix}',${i})"><i class="fas fa-times"></i></button></div>`;
   }).join('');
 }
-function removePendingImg(prefix,idx){if(_pimg[prefix])_pimg[prefix].splice(idx,1);renderPendingImgs(prefix);}
+async function removePendingImg(prefix,idx){
+  if(!_pimg[prefix]) return;
+  const img = _pimg[prefix][idx];
+  // Delete from Firebase Storage if already uploaded
+  if(img && img.url) await deleteImgFromStorage(img.url);
+  _pimg[prefix].splice(idx,1);
+  renderPendingImgs(prefix);
+}
 function viewImgFull(src) {
   let o=document.getElementById('img-overlay');
   if(!o){o=document.createElement('div');o.id='img-overlay';o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:20px;';o.onclick=()=>o.remove();document.body.appendChild(o);}
