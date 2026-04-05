@@ -79,8 +79,24 @@ async function loadDB() {
 async function saveDB(data) {
   _cache = data;
   showSync(true);
-  try { await setDoc(userDoc(), data); }
-  catch(e) { console.error('saveDB error:', e); showToast('⚠️ Save failed'); }
+  try {
+    // Check size before saving - Firestore limit is 1MB per document
+    const size = new Blob([JSON.stringify(data)]).size;
+    if (size > 900000) {
+      showToast('⚠️ Data too large! Please delete some photos to free up space.');
+      showSync(false);
+      return;
+    }
+    await setDoc(userDoc(), data);
+  }
+  catch(e) {
+    console.error('saveDB error:', e);
+    if (e.message && e.message.includes('maximum allowed size')) {
+      showToast('⚠️ Too many photos! Please delete some photos from loans.');
+    } else {
+      showToast('⚠️ Save failed — check internet connection');
+    }
+  }
   finally { showSync(false); }
 }
 
@@ -1029,7 +1045,7 @@ function handleImgSelect(prefix, input) {
   if(!_pimg[prefix]) _pimg[prefix]=[];
   Array.from(input.files).forEach(async file=>{
     // Compress: max 800x800, 70% quality — reduces ~5MB photo to ~80KB
-    const compressed = await compressImg(file, 800, 800, 0.70);
+    const compressed = await compressImg(file, 400, 400, 0.50);
     _pimg[prefix].push({id:genId(), data:compressed, createdAt:new Date().toISOString()});
     renderPendingImgs(prefix);
   });
@@ -1066,7 +1082,7 @@ async function _doAddImg(loanId, mode) {
   input.onchange=async e=>{
     const db=getDB(); const l=db.loans.find(x=>x.id===loanId); if(!l) return;
     if(!l.images) l.images=[];
-    await Promise.all(Array.from(e.target.files).map(async file=>{const compressed=await compressImg(file,800,800,0.70);l.images.push({id:genId(),data:compressed,createdAt:new Date().toISOString()});}));
+    await Promise.all(Array.from(e.target.files).map(async file=>{const compressed=await compressImg(file,400,400,0.50);l.images.push({id:genId(),data:compressed,createdAt:new Date().toISOString()});}));
     await saveDB(db); openLoanModal(loanId);
   };
   input.click();
