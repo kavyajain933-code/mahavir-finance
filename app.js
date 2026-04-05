@@ -1042,6 +1042,21 @@ function compressImg(file, maxW, maxH, quality) {
   });
 }
 
+async function uploadImgToStorage(base64data, path) {
+  const imgRef = ref(storage, path);
+  await uploadString(imgRef, base64data, 'data_url');
+  return await getDownloadURL(imgRef);
+}
+
+async function deleteImgFromStorage(url) {
+  try {
+    const imgRef = ref(storage, url);
+    await deleteObject(imgRef);
+  } catch(e) {
+    console.warn('Could not delete from storage:', e);
+  }
+}
+
 function handleImgSelect(prefix, input) {
   if(!input.files.length) return;
   if(!_pimg[prefix]) _pimg[prefix]=[];
