@@ -420,8 +420,8 @@ select.input-field{cursor:pointer;}
 .loan-card-name{font-size:1rem;font-weight:700;color:var(--text);}
 .loan-card-account{font-size:0.76rem;color:var(--text3);margin-top:2px;}
 .loan-card-row{display:flex;justify-content:space-between;font-size:0.87rem;margin-bottom:5px;gap:4px;}
-.loan-card-row .lbl{color:var(--text3);}
-.loan-card-row .val{font-weight:600;color:var(--text);}
+.loan-card-row .lbl{color:#9090b8;}
+.loan-card-row .val{font-weight:600;color:#e8e8f5;}
 .loan-card-row .val.gold,.val-gold{color:var(--gold)!important;}
 .loan-card-row .text-green{color:var(--green)!important;}
 .loan-card-row .text-red{color:var(--red)!important;}

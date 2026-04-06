@@ -435,7 +435,29 @@ function renderIndex() {
   else if (skF==='direct') loans=loans.filter(l=>isDirectLoan(l));
   else if (skF==='other') loans=loans.filter(l=>isOtherLoan(l));
   loans=loans.filter(l=>{ const c=db.customers.find(x=>x.id===l.customerId); if(!c) return false; if(!q) return true; return c.name.toLowerCase().includes(q)||(c.mobile||'').includes(q)||c.account.toLowerCase().includes(q); });
-  loans.sort((a,b)=>{ const ca=db.customers.find(c=>c.id===a.customerId); const cb=db.customers.find(c=>c.id===b.customerId); return (ca?.account||'').localeCompare(cb?.account||''); });
+  const idxSort=(document.getElementById('idx-sort')||{value:'account'}).value;
+  loans.sort((a,b)=>{
+    const ca=db.customers.find(c=>c.id===a.customerId); const cb=db.customers.find(c=>c.id===b.customerId);
+    const pa=getLoanTotal(a); const pb=getLoanTotal(b);
+    const lia=getLastIntDate(a.id); const lib=getLastIntDate(b.id);
+    const ida=calcSegInt(a.id,lia,today).totalInterest+getLoanPending(a);
+    const idb=calcSegInt(b.id,lib,today).totalInterest+getLoanPending(b);
+    switch(idxSort) {
+      case 'account': return (ca?.account||'').localeCompare(cb?.account||'', undefined, {numeric:true});
+      case 'name': return (ca?.name||'').localeCompare(cb?.name||'');
+      case 'amount_high': return pb-pa;
+      case 'amount_low': return pa-pb;
+      case 'int_high': return idb-ida;
+      case 'int_low': return ida-idb;
+      case 'owed_high': return (pb+idb)-(pa+ida);
+      case 'owed_low': return (pa+ida)-(pb+idb);
+      case 'date_new': return new Date(b.startDate)-new Date(a.startDate);
+      case 'date_old': return new Date(a.startDate)-new Date(b.startDate);
+      case 'rate_high': return b.rate-a.rate;
+      case 'duration_long': return new Date(a.startDate)-new Date(b.startDate);
+      default: return (ca?.account||'').localeCompare(cb?.account||'', undefined, {numeric:true});
+    }
+  });
   const el=document.getElementById('idx-tbody');
   if (!loans.length) { el.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)"><i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:8px;opacity:.4"></i>No active loans found</td></tr>`; document.getElementById('idx-count').textContent='0 loans'; return; }
   document.getElementById('idx-count').textContent=loans.length+' active loan'+(loans.length!==1?'s':'');
@@ -712,7 +734,29 @@ function renderLiveLoans() {
   if(skF==='sk') loans=loans.filter(l=>isSkLoan(l));
   else if(skF==='direct') loans=loans.filter(l=>isDirectLoan(l));
   else if(skF==='other') loans=loans.filter(l=>isOtherLoan(l));
-  loans=loans.filter(l=>{const c=db.customers.find(x=>x.id===l.customerId);return c&&(!q||c.name.toLowerCase().includes(q)||(c.mobile||'').includes(q)||c.account.toLowerCase().includes(q));}).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const llSort=(document.getElementById('ll-sort')||{value:'account'}).value;
+  loans=loans.filter(l=>{const c=db.customers.find(x=>x.id===l.customerId);return c&&(!q||c.name.toLowerCase().includes(q)||(c.mobile||'').includes(q)||c.account.toLowerCase().includes(q));});
+  loans.sort((a,b)=>{
+    const ca=db.customers.find(c=>c.id===a.customerId); const cb=db.customers.find(c=>c.id===b.customerId);
+    const pa=getLoanTotal(a); const pb=getLoanTotal(b);
+    const lia=getLastIntDate(a.id); const lib=getLastIntDate(b.id);
+    const tdy=new Date().toISOString().split('T')[0];
+    const ida=calcSegInt(a.id,lia,tdy).totalInterest+getLoanPending(a);
+    const idb=calcSegInt(b.id,lib,tdy).totalInterest+getLoanPending(b);
+    switch(llSort) {
+      case 'account': return (ca?.account||'').localeCompare(cb?.account||'', undefined, {numeric:true});
+      case 'name': return (ca?.name||'').localeCompare(cb?.name||'');
+      case 'amount_high': return pb-pa;
+      case 'amount_low': return pa-pb;
+      case 'int_high': return idb-ida;
+      case 'int_low': return ida-idb;
+      case 'date_new': return new Date(b.startDate)-new Date(a.startDate);
+      case 'date_old': return new Date(a.startDate)-new Date(b.startDate);
+      case 'rate_high': return b.rate-a.rate;
+      case 'favourites': return (b.favourite?1:0)-(a.favourite?1:0);
+      default: return (ca?.account||'').localeCompare(cb?.account||'', undefined, {numeric:true});
+    }
+  });
   const grid=document.getElementById('live-loans-grid');
   if(!loans.length){grid.innerHTML='<div class="empty-state"><i class="fas fa-bolt"></i><p>No active loans</p></div>';return;}
   grid.innerHTML=loans.map(l=>{
@@ -724,17 +768,17 @@ function renderLiveLoans() {
     const sk=isSkLoan(l); const oth=isOtherLoan(l);
     return `<div class="loan-card ${sk?'via-sk':oth?'via-other':''}" onclick="openLoanModal('${l.id}')">
       <div class="loan-card-header">
-        <div><div class="loan-card-name">${c.name}</div><div class="loan-card-account">${c.account} · ${c.mobile||'—'}</div></div>
+        <div><div class="loan-card-name">${c.name}</div><div class="loan-card-account" style="color:#a0a0c0">${c.account} · ${c.mobile||'—'}</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <div style="display:flex;align-items:center;gap:6px"><button class="fav-star ${l.favourite?'active':''}" onclick="toggleFav('${l.id}',event)"><i class="${l.favourite?'fas':'far'} fa-star"></i></button><span class="badge badge-active">Active</span></div>
           ${sk?'<span class="badge badge-sk">SK Gold</span>':oth?`<span class="badge badge-other">${l.viaOtherName||'Other'}</span>`:''}
         </div>
       </div>
-      <div class="loan-card-row"><span class="lbl">Principal</span><span class="val gold">${fmtMoney(tot)}</span></div>
-      <div class="loan-card-row"><span class="lbl">Rate</span><span class="val">${l.rate}% / month</span></div>
-      <div class="loan-card-row"><span class="lbl">Started</span><span class="val">${fmtDate(l.startDate)} <span style="color:var(--text3)">(${dur})</span></span></div>
-      <div class="loan-card-row"><span class="lbl">Est. Due</span><span class="val gold">${fmtMoney(est)}</span></div>
-      <div class="loan-card-row"><span class="lbl">Int. Received</span><span class="val text-green">${fmtMoney(rcvd)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Principal</span><span class="val gold">${fmtMoney(tot)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Rate</span><span class="val">${l.rate}% / month</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Started</span><span class="val">${fmtDate(l.startDate)} <span style="color:var(--text3)">(${dur})</span></span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Est. Due</span><span class="val gold">${fmtMoney(est)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Int. Received</span><span class="val text-green">${fmtMoney(rcvd)}</span></div>
       ${disc>0?`<div class="loan-card-row"><span class="lbl text-red">Discount</span><span class="val text-red">−${fmtMoney(disc)}</span></div>`:''}
       ${pend>0?`<div class="loan-card-row"><span class="lbl" style="color:var(--gold)">Pay Later</span><span class="val" style="color:var(--gold)">${fmtMoney(pend)}</span></div>`:''}
       ${part>0?`<div class="loan-card-row"><span class="lbl" style="color:#4f8ef7">Partial Repaid</span><span class="val" style="color:#4f8ef7">${fmtMoney(part)}</span></div>`:''}
@@ -772,13 +816,13 @@ function renderFavourites() {
     const tot=getLoanTotal(l); const li=getLastIntDate(l.id);
     const est=calcSegInt(l.id,li,today).totalInterest; const rcvd=getLoanIntReceived(l); const dur=fmtDuration(l.startDate,today);
     return `<div class="loan-card ${isSkLoan(l)?'via-sk':isOtherLoan(l)?'via-other':''}" onclick="openLoanModal('${l.id}')">
-      <div class="loan-card-header"><div><div class="loan-card-name">${c.name}</div><div class="loan-card-account">${c.account} · ${c.mobile||'—'}</div></div>
+      <div class="loan-card-header"><div><div class="loan-card-name">${c.name}</div><div class="loan-card-account" style="color:#a0a0c0">${c.account} · ${c.mobile||'—'}</div></div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><button class="fav-star active" onclick="toggleFav('${l.id}',event)"><i class="fas fa-star"></i></button>${isSkLoan(l)?'<span class="badge badge-sk">SK</span>':''}</div></div>
-      <div class="loan-card-row"><span class="lbl">Principal</span><span class="val gold">${fmtMoney(tot)}</span></div>
-      <div class="loan-card-row"><span class="lbl">Rate</span><span class="val">${l.rate}%/mo</span></div>
-      <div class="loan-card-row"><span class="lbl">Started</span><span class="val">${fmtDate(l.startDate)} (${dur})</span></div>
-      <div class="loan-card-row"><span class="lbl">Est. Due</span><span class="val gold">${fmtMoney(est)}</span></div>
-      <div class="loan-card-row"><span class="lbl">Int. Received</span><span class="val text-green">${fmtMoney(rcvd)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Principal</span><span class="val gold">${fmtMoney(tot)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Rate</span><span class="val">${l.rate}%/mo</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Started</span><span class="val">${fmtDate(l.startDate)} (${dur})</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Est. Due</span><span class="val gold">${fmtMoney(est)}</span></div>
+      <div class="loan-card-row"><span class="lbl" style="color:#b0b0cc">Int. Received</span><span class="val text-green">${fmtMoney(rcvd)}</span></div>
       <div class="loan-card-actions"><button class="btn-primary btn-sm" onclick="event.stopPropagation();quickInt('${l.id}')"><i class="fas fa-coins"></i> Interest</button><button class="btn-ghost btn-sm" onclick="event.stopPropagation();openLoanModal('${l.id}')"><i class="fas fa-eye"></i></button></div>
     </div>`;
   }).join('');
