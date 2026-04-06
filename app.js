@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref, refFromURL, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDUNpVHZibSLefk75oxDwZbHgabUMsu9xo",
@@ -1052,8 +1052,15 @@ async function uploadImgToStorage(base64data, path) {
 
 async function deleteImgFromStorage(url) {
   try {
-    // Use refFromURL for full https:// URLs, ref() for paths
-    const imgRef = url.startsWith('https://') ? refFromURL(storage, url) : ref(storage, url);
+    let imgRef;
+    if (url.startsWith('https://firebasestorage')) {
+      // Extract path from full Firebase Storage URL
+      const urlObj = new URL(url);
+      const path = decodeURIComponent(urlObj.pathname.split('/o/')[1].split('?')[0]);
+      imgRef = ref(storage, path);
+    } else {
+      imgRef = ref(storage, url);
+    }
     await deleteObject(imgRef);
     console.log('Deleted from storage:', url);
   } catch(e) {
