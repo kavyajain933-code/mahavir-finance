@@ -1572,7 +1572,7 @@ function renderOtherMediator() {
     html += '<div class="form-group"><label>Amount (₹) *</label><input type="number" id="om-adj-amt-'+key+'" class="input-field" placeholder="0"/></div>';
     html += '<div class="form-group"><label>Date *</label><input type="date" id="om-adj-date-'+key+'" class="input-field" value="'+today+'"/></div>';
     html += '<div class="form-group full-width"><label>Reason / Notes</label><input type="text" id="om-adj-notes-'+key+'" class="input-field" placeholder="e.g. Capital given, etc."/></div>';
-    html += '</div><div class="form-actions"><button class="btn-gold" onclick="addMediatorOutstanding(''+name+'')"><i class="fas fa-plus-circle"></i> Add to Outstanding</button></div>';
+    html += '</div><div class="form-actions"><button class="btn-gold" onclick="addMediatorOutstanding(\'' + name + '\')"><i class="fas fa-plus-circle"></i> Add to Outstanding</button></div>';
     html += '</div>';
 
     // Record Settlement form
@@ -1582,7 +1582,7 @@ function renderOtherMediator() {
     html += '<div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="om-amt-'+key+'" class="input-field" placeholder="0"/></div>';
     html += '<div class="form-group"><label>Date *</label><input type="date" id="om-date-'+key+'" class="input-field" value="'+today+'"/></div>';
     html += '<div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-'+key+'" class="input-field" placeholder="Optional"/></div>';
-    html += '</div><div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment(''+name+'')"><i class="fas fa-save"></i> Record Settlement</button></div>';
+    html += '</div><div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment(\'' + name + '\')"><i class="fas fa-save"></i> Record Settlement</button></div>';
 
     // Settlement history
     const history = db.transactions.filter(t=>t.mediatorName===name&&t.type==='mediator_payment').sort((a,b)=>new Date(b.date)-new Date(a.date));
