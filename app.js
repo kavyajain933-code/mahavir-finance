@@ -947,6 +947,7 @@ function renderLiveLoans() {
       <div class="loan-card-actions">
         <button class="btn-primary btn-sm" onclick="event.stopPropagation();quickInt('${l.id}')"><i class="fas fa-coins"></i> Interest</button>
         <button class="btn-ghost btn-sm" onclick="event.stopPropagation();quickPart('${l.id}')"><i class="fas fa-arrow-down"></i> Repay</button>
+        <button class="btn-ghost btn-sm" onclick="event.stopPropagation();preselectTopup('${l.id}')"><i class="fas fa-arrow-up"></i> Top-Up</button>
         <button class="btn-ghost btn-sm" onclick="event.stopPropagation();openLoanModal('${l.id}')"><i class="fas fa-eye"></i></button>
         <button class="btn-danger btn-sm" onclick="event.stopPropagation();openCloseModal('${l.id}')"><i class="fas fa-lock"></i></button>
       </div>
@@ -1665,45 +1666,92 @@ async function saveMediatorPayment(mediatorName) {
 // ==================== PAYMENT INFO PAGE ====================
 function renderPaymentInfo() {
   const db = getDB();
-  const today = new Date().toISOString().split('T')[0];
-  // Aggregate all payments by method
-  let totals = {cash:0, bank:0, sk_outstanding:0, other_outstanding:0};
-  let monthly = {};
+
+  // Cash flows
+  let cashIn = 0, cashOut = 0;
+  let bankIn = 0, bankOut = 0;
+  let skIn = 0, skOut = 0;
+  let omIn = 0, omOut = 0;
+
+  db.transactions.forEach(t => {
+    const p = t.payment || {};
+    // Inflows = money coming TO you (interest received, closure repayment)
+    // Outflows = money going OUT from you (new loan capital given, top-up)
+    const isInflow = (t.type === 'interest' || t.type === 'closure' || t.type === 'sk_payment' || t.type === 'mediator_payment');
+    const isOutflow = (t.type === 'loan' || t.type === 'topup');
+
+    if (isInflow) {
+      cashIn += (p.cash || 0);
+      bankIn += (p.bank || 0);
+      skIn   += (p.sk_outstanding || 0);
+      omIn   += (p.other_outstanding || 0);
+    }
+    if (isOutflow) {
+      cashOut += (p.cash || 0);
+      bankOut += (p.bank || 0);
+      skOut   += (p.sk_outstanding || 0);
+      omOut   += (p.other_outstanding || 0);
+    }
+  });
+
+  // Also count SK settlements as inflow (not via payment obj)
+  db.sk_payments.forEach(p => { cashIn += 0; }); // already counted via sk_payment type
+
+  const netCash = cashIn - cashOut;
+  const netBank = bankIn - bankOut;
+  const netSk   = skIn - skOut;
+  const netOm   = omIn - omOut;
+
+  // Monthly breakdown
+  const monthly = {};
   db.transactions.forEach(t => {
     if (!t.payment) return;
     const p = t.payment;
-    const amt = t.type==='interest' ? (t.received||0) : (t.amount||0);
-    const month = (t.date||'').substring(0,7);
-    if (!monthly[month]) monthly[month] = {cash:0,bank:0,sk_outstanding:0,other_outstanding:0};
-    ['cash','bank','sk_outstanding','other_outstanding'].forEach(k=>{
-      if(p[k]>0){ totals[k]+=(p[k]||0); monthly[month][k]+=(p[k]||0); }
-    });
+    const month = (t.date || '').substring(0,7);
+    if (!month) return;
+    if (!monthly[month]) monthly[month] = {cashIn:0,cashOut:0,bankIn:0,bankOut:0,skIn:0,skOut:0,omIn:0,omOut:0};
+    const isIn = (t.type==='interest'||t.type==='closure'||t.type==='sk_payment'||t.type==='mediator_payment');
+    const isOut = (t.type==='loan'||t.type==='topup');
+    if (isIn)  { monthly[month].cashIn+=(p.cash||0); monthly[month].bankIn+=(p.bank||0); monthly[month].skIn+=(p.sk_outstanding||0); monthly[month].omIn+=(p.other_outstanding||0); }
+    if (isOut) { monthly[month].cashOut+=(p.cash||0); monthly[month].bankOut+=(p.bank||0); monthly[month].skOut+=(p.sk_outstanding||0); monthly[month].omOut+=(p.other_outstanding||0); }
   });
-  const totalAll = totals.cash+totals.bank+totals.sk_outstanding+totals.other_outstanding;
-  const skOut = calcSkOutstanding(db);
-  const mediators = getAllMediators(db);
-  document.getElementById('pi-content').innerHTML = `
-    <div class="stats-grid" style="margin-bottom:20px">
-      <div class="stat-card"><div class="stat-icon" style="color:#22d87a"><i class="fas fa-money-bill-wave"></i></div><div class="stat-label">Cash Total</div><div class="stat-value" style="color:#22d87a">${fmtMoney(totals.cash)}</div><div class="stat-sub">All time</div></div>
-      <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-building-columns"></i></div><div class="stat-label">Bank Transfer Total</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(totals.bank)}</div><div class="stat-sub">All time</div></div>
-      <div class="stat-card"><div class="stat-icon" style="color:#a07af5"><i class="fas fa-handshake"></i></div><div class="stat-label">Via SK Outstanding</div><div class="stat-value" style="color:#a07af5">${fmtMoney(totals.sk_outstanding)}</div><div class="stat-sub">SK net: ${fmtMoney(skOut)}</div></div>
-      <div class="stat-card"><div class="stat-icon" style="color:#f39c12"><i class="fas fa-user-tie"></i></div><div class="stat-label">Via Other Mediator</div><div class="stat-value" style="color:#f39c12">${fmtMoney(totals.other_outstanding)}</div><div class="stat-sub">${mediators.length} mediator${mediators.length!==1?'s':''}</div></div>
-    </div>
-    <div class="form-card">
-      <div class="form-section-title"><i class="fas fa-calendar"></i> Monthly Breakdown</div>
-      ${Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([month,p])=>`
-        <div class="sk-sum-row" style="flex-direction:column;align-items:flex-start;gap:4px">
-          <div style="font-weight:700;color:var(--text);margin-bottom:4px">${month}</div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.85rem">
-            ${p.cash>0?`<span><i class="fas fa-money-bill-wave" style="color:#22d87a"></i> Cash: ${fmtMoney(p.cash)}</span>`:''}
-            ${p.bank>0?`<span><i class="fas fa-building-columns" style="color:#4f8ef7"></i> Bank: ${fmtMoney(p.bank)}</span>`:''}
-            ${p.sk_outstanding>0?`<span><i class="fas fa-handshake" style="color:#a07af5"></i> SK: ${fmtMoney(p.sk_outstanding)}</span>`:''}
-            ${p.other_outstanding>0?`<span><i class="fas fa-user-tie" style="color:#f39c12"></i> Mediator: ${fmtMoney(p.other_outstanding)}</span>`:''}
-          </div>
-        </div>`).join('')}
-    </div>`;
-}
 
+  const statCard = (icon, label, inflow, outflow, color) => {
+    const net = inflow - outflow;
+    const netColor = net >= 0 ? 'var(--green)' : 'var(--red)';
+    return '<div class="stat-card" style="grid-column:span 1">'
+      + '<div class="stat-icon" style="color:'+color+'"><i class="fas fa-'+icon+'"></i></div>'
+      + '<div class="stat-label">'+label+'</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">'
+      + '<div style="background:rgba(34,216,122,0.08);border-radius:6px;padding:6px 8px"><div style="font-size:0.68rem;color:var(--text3);font-weight:700;text-transform:uppercase">Inflow</div><div style="font-size:0.92rem;font-weight:700;color:var(--green)">'+fmtMoney(inflow)+'</div></div>'
+      + '<div style="background:rgba(240,85,85,0.08);border-radius:6px;padding:6px 8px"><div style="font-size:0.68rem;color:var(--text3);font-weight:700;text-transform:uppercase">Outflow</div><div style="font-size:0.92rem;font-weight:700;color:var(--red)">'+fmtMoney(outflow)+'</div></div>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:0.8rem;font-weight:700;color:'+netColor+'">Net: '+fmtMoney(Math.abs(net))+(net>=0?' ↑':' ↓')+'</div>'
+      + '</div>';
+  };
+
+  const piEl = document.getElementById('pi-content');
+  piEl.innerHTML = '<div class="stats-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">'
+    + statCard('money-bill-wave', '💵 Cash', cashIn, cashOut, '#22d87a')
+    + statCard('building-columns', '🏦 Bank Transfer', bankIn, bankOut, '#4f8ef7')
+    + statCard('handshake', '🤝 SK Gold', skIn, skOut, '#a07af5')
+    + statCard('user-tie', '👤 Other Mediator', omIn, omOut, '#f39c12')
+    + '</div>'
+    + '<div class="form-card">'
+    + '<div class="form-section-title"><i class="fas fa-calendar"></i> Monthly Breakdown</div>'
+    + Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([month,m])=>{
+        let row = '<div class="sk-sum-row" style="flex-direction:column;align-items:flex-start;gap:6px">';
+        row += '<div style="font-weight:700;color:var(--text)">' + month + '</div>';
+        row += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;width:100%;font-size:0.82rem">';
+        if(m.cashIn||m.cashOut) row += '<div style="background:rgba(34,216,122,0.06);padding:6px 10px;border-radius:6px"><span style="color:#22d87a;font-weight:700">💵 Cash</span><br>In: '+fmtMoney(m.cashIn)+' · Out: '+fmtMoney(m.cashOut)+'</div>';
+        if(m.bankIn||m.bankOut) row += '<div style="background:rgba(79,142,247,0.06);padding:6px 10px;border-radius:6px"><span style="color:#4f8ef7;font-weight:700">🏦 Bank</span><br>In: '+fmtMoney(m.bankIn)+' · Out: '+fmtMoney(m.bankOut)+'</div>';
+        if(m.skIn||m.skOut)    row += '<div style="background:rgba(160,122,245,0.06);padding:6px 10px;border-radius:6px"><span style="color:#a07af5;font-weight:700">🤝 SK Gold</span><br>In: '+fmtMoney(m.skIn)+' · Out: '+fmtMoney(m.skOut)+'</div>';
+        if(m.omIn||m.omOut)    row += '<div style="background:rgba(243,156,18,0.06);padding:6px 10px;border-radius:6px"><span style="color:#f39c12;font-weight:700">👤 Mediator</span><br>In: '+fmtMoney(m.omIn)+' · Out: '+fmtMoney(m.omOut)+'</div>';
+        row += '</div></div>';
+        return row;
+      }).join('')
+    + '</div>';
+}
 // ==================== EXPORT / IMPORT / RESET ====================
 function exportData() {
   const db=getDB(); const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
