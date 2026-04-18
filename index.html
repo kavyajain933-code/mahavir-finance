@@ -334,7 +334,14 @@
         <div class="form-actions"><button class="btn-primary" onclick="saveSkPayment()"><i class="fas fa-save"></i> Record Settlement</button></div>
         <div id="sk-msg" class="success-msg hidden"></div>
       </div>
-      <div class="form-card" style="margin-top:16px"><div class="form-section-title"><i class="fas fa-list"></i> Settlement History</div><div id="sk-history"></div></div>
+      <div class="form-card" style="margin-top:16px">
+        <div class="form-section-title"><i class="fas fa-handshake"></i> Settlement History</div>
+        <div id="sk-history"></div>
+      </div>
+      <div class="form-card" style="margin-top:16px">
+        <div class="form-section-title"><i class="fas fa-clock-rotate-left"></i> All SK Transactions</div>
+        <div id="sk-txn-history"></div>
+      </div>
     </section>
 
     <!-- HISTORY -->
@@ -445,6 +452,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=41"></script>
+<script type="module" src="app.js?v=42"></script>
 </body>
 </html>

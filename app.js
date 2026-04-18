@@ -1107,8 +1107,47 @@ function renderSkGold() {
     <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via SK</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(skCapGiven)}</div><div class="stat-sub">SK paid borrowers for you</div></div>
     <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">SK Active Loans</div><div class="stat-value">${skL.length}</div><div class="stat-sub">Capital: ${fmtMoney(skCap)}</div></div>`;
   document.getElementById('sk-date').value=new Date().toISOString().split('T')[0];
+
+  // Settlement history
   const hist=[...db.sk_payments].sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('sk-history').innerHTML=hist.length?hist.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from SK</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join(''):'<div class="empty-state"><i class="fas fa-handshake"></i><p>No settlements yet</p></div>';
+
+  // Full transaction history for SK
+  const imap2={loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',sk_payment:'fas fa-handshake'};
+  const lmap2={loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',sk_payment:'SK Settlement'};
+
+  // All SK-related transactions
+  const skTxns = [...db.transactions].filter(t => {
+    if (t.type === 'sk_payment') return true;
+    const loan = db.loans.find(l=>l.id===t.loanId);
+    if (!loan) return false;
+    // Any transaction on a SK loan
+    if (isSkLoan(loan)) return true;
+    // Any transaction where payment involved SK outstanding
+    if (t.payment && (t.payment.sk_outstanding||0) > 0) return true;
+    return false;
+  }).sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date));
+
+  const skTxnEl = document.getElementById('sk-txn-history');
+  if (skTxnEl) {
+    skTxnEl.innerHTML = skTxns.length ? skTxns.map(t => {
+      const loan = db.loans.find(l=>l.id===t.loanId);
+      const cust = loan ? db.customers.find(c=>c.id===loan.customerId) : null;
+      const name = t.type==='sk_payment' ? 'SK Gold' : (cust?cust.name:'—');
+      const amt = t.type==='interest' ? fmtMoney(t.received||0) : fmtMoney(t.amount||0);
+      const pmtTag = t.payment && (t.payment.sk_outstanding||0)>0 ? `<span class="hist-tag" style="background:rgba(160,122,245,0.15);color:#a07af5">SK: ${fmtMoney(t.payment.sk_outstanding)}</span>` : '';
+      const typeColor = t.type==='sk_payment'?'var(--green)':t.type==='loan'?'#4f8ef7':t.type==='interest'?'#a07af5':t.type==='closure'?'var(--red)':'var(--text2)';
+      return `<div class="activity-item">
+        <div class="activity-icon ${t.type==='sk_payment'?'sk_payment':t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap2[t.type]||'fas fa-circle'}"></i></div>
+        <div class="activity-text">
+          <div class="activity-name">${name} <span style="font-size:0.75rem;font-weight:600;color:${typeColor};background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px">${lmap2[t.type]||t.type}</span></div>
+          <div class="activity-meta">${fmtDate(t.date)}${cust?' · '+cust.account:''}</div>
+          ${pmtTag?`<div class="tl-tags" style="margin-top:4px">${pmtTag}</div>`:''}
+        </div>
+        <div class="activity-amount" style="color:${typeColor}">${amt}</div>
+      </div>`;
+    }).join('') : '<div class="empty-state"><i class="fas fa-clock-rotate-left"></i><p>No SK transactions yet</p></div>';
+  }
 }
 async function saveSkPayment() {
   const amount=parseFloat(document.getElementById('sk-amount').value); const date=document.getElementById('sk-date').value;
@@ -1484,6 +1523,37 @@ function renderOtherMediator() {
         <div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment('${name}')"><i class="fas fa-save"></i> Record Settlement</button></div>
         <div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>
         <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from ${name}</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
+        <div class="form-section-title" style="margin-top:20px"><i class="fas fa-clock-rotate-left"></i> All Transactions</div>
+        <div>${(()=>{
+          const imap3={loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',mediator_payment:'fas fa-handshake'};
+          const lmap3={loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',mediator_payment:'Settlement'};
+          const medTxns = db.transactions.filter(t=>{
+            if(t.type==='mediator_payment'&&t.mediatorName===name) return true;
+            const loan2=db.loans.find(l=>l.id===t.loanId);
+            if(!loan2) return false;
+            if(loan2.viaSk==='other'&&loan2.viaOtherName===name) return true;
+            if(t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name) return true;
+            return false;
+          }).sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date));
+          if(!medTxns.length) return '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No transactions yet</div>';
+          return medTxns.map(t=>{
+            const loan2=db.loans.find(l=>l.id===t.loanId);
+            const cust2=loan2?db.customers.find(c=>c.id===loan2.customerId):null;
+            const tname=t.type==='mediator_payment'?name:(cust2?cust2.name:'—');
+            const amt2=t.type==='interest'?fmtMoney(t.received||0):fmtMoney(t.amount||0);
+            const pmtTag2=t.payment&&(t.payment.other_outstanding||0)>0?`<span class="hist-tag" style="background:rgba(243,156,18,0.15);color:#f39c12">Mediator: ${fmtMoney(t.payment.other_outstanding)}</span>`:'';
+            const tc=t.type==='mediator_payment'?'var(--green)':t.type==='loan'?'#4f8ef7':t.type==='interest'?'#f39c12':t.type==='closure'?'var(--red)':'var(--text2)';
+            return \`<div class="activity-item">
+              <div class="activity-icon \${t.type==='mediator_payment'?'sk_payment':t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="\${imap3[t.type]||'fas fa-circle'}"></i></div>
+              <div class="activity-text">
+                <div class="activity-name">\${tname} <span style="font-size:0.75rem;font-weight:600;color:\${tc};background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px">\${lmap3[t.type]||t.type}</span></div>
+                <div class="activity-meta">\${fmtDate(t.date)}\${cust2?' · '+cust2.account:''}</div>
+                \${pmtTag2?\`<div class="tl-tags" style="margin-top:4px">\${pmtTag2}</div>\`:''}
+              </div>
+              <div class="activity-amount" style="color:\${tc}">\${amt2}</div>
+            </div>\`;
+          }).join('');
+        })()}</div>
       </div>
       <hr style="border:none;border-top:1px solid var(--border2);margin:8px 0 20px"/>`;
   }).join('');
