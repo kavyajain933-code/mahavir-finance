@@ -660,3 +660,10 @@ select.input-field{cursor:pointer;}
   display: flex; flex-wrap: wrap; gap: 10px;
   padding: 8px 0;
 }
+
+/* ===== V4.0 PAYMENT METHODS ===== */
+.payment-split-toggle{margin-bottom:10px;}
+.split-toggle-label{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text2);cursor:pointer;font-weight:600;}
+.split-toggle-label input{accent-color:var(--gold);width:16px;height:16px;}
+.split-payment-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.payment-split-total{font-size:0.9rem;font-weight:700;color:var(--gold);margin-top:8px;padding:8px 12px;background:var(--gold-faint);border-radius:7px;}

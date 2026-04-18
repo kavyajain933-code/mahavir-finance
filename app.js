@@ -250,10 +250,22 @@ function navigateTo(page, addHistory=true) {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sb-overlay').classList.remove('active');
   }
+  // Reset history filter when navigating away from history
+  const cur2 = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (cur2 === 'history' && page !== 'history') {
+    const hf = document.getElementById('hist-filter');
+    if (hf) hf.value = 'all';
+  }
+  // Special: history-interest sets filter before rendering
+  if (page === 'history-interest') {
+    page = 'history';
+    setTimeout(()=>{ const hf=document.getElementById('hist-filter'); if(hf){hf.value='interest';renderHistory();} },50);
+  }
   const renders = {
     dashboard: renderDashboard, index: renderIndex, 'live-loans': renderLiveLoans,
     'closed-loans': renderClosedLoans, favourites: renderFavourites,
-    history: renderHistory, customers: renderCustomers, 'sk-gold': renderSkGold
+    history: renderHistory, customers: renderCustomers, 'sk-gold': renderSkGold,
+    'other-mediator': renderOtherMediator, 'payment-info': renderPaymentInfo
   };
   if (renders[page]) renders[page]();
 }
@@ -270,6 +282,77 @@ function genAccNo(db) {
   while (db.customers.find(c => c.account === a)) { n++; a = 'MF' + String(n).padStart(4,'0'); }
   return a;
 }
+// ==================== PAYMENT METHODS ====================
+// payment = { cash:0, bank:0, sk_outstanding:0, other_outstanding:0 }
+function emptyPayment() { return {cash:0, bank:0, sk_outstanding:0, other_outstanding:0}; }
+function totalPayment(p) { if(!p) return 0; return (p.cash||0)+(p.bank||0)+(p.sk_outstanding||0)+(p.other_outstanding||0); }
+function fmtPayment(p) {
+  if(!p) return '—';
+  const parts=[];
+  if(p.cash>0) parts.push(`Cash: ${fmtMoney(p.cash)}`);
+  if(p.bank>0) parts.push(`Bank: ${fmtMoney(p.bank)}`);
+  if(p.sk_outstanding>0) parts.push(`SK: ${fmtMoney(p.sk_outstanding)}`);
+  if(p.other_outstanding>0) parts.push(`Mediator: ${fmtMoney(p.other_outstanding)}`);
+  return parts.length ? parts.join(' + ') : '—';
+}
+
+// SK Outstanding: sum of all amounts that SK owes us
+// +interest collected via SK customers, +close loan via SK, +interest via SK
+// -capital given via SK outstanding (we used SK credit), -SK settlements received
+function calcSkOutstanding(db) {
+  let total = 0;
+  // Interest collected from SK customers (they still need to pay us)
+  db.transactions.forEach(t => {
+    if (t.type === 'interest') {
+      const pmt = t.payment || {};
+      total += (pmt.sk_outstanding||0);
+    }
+    if (t.type === 'closure') {
+      const pmt = t.payment || {};
+      total += (pmt.sk_outstanding||0);
+    }
+    if (t.type === 'loan') {
+      // Capital given via SK means SK paid on our behalf — SK owes us less
+      const pmt = t.payment || {};
+      total -= (pmt.sk_outstanding||0);
+    }
+    if (t.type === 'sk_payment') {
+      total -= (t.amount||0); // settlements reduce outstanding
+    }
+    if (t.type === 'topup') {
+      const pmt = t.payment || {};
+      total -= (pmt.sk_outstanding||0);
+    }
+  });
+  return total;
+}
+
+// Other mediator outstanding per mediator name
+function calcMediatorOutstanding(db, mediatorName) {
+  let total = 0;
+  db.transactions.forEach(t => {
+    if (t.mediatorName !== mediatorName) return;
+    if (t.type === 'interest' || t.type === 'closure') {
+      const pmt = t.payment || {};
+      total += (pmt.other_outstanding||0);
+    }
+    if (t.type === 'loan' || t.type === 'topup') {
+      const pmt = t.payment || {};
+      total -= (pmt.other_outstanding||0);
+    }
+    if (t.type === 'mediator_payment') {
+      total -= (t.amount||0);
+    }
+  });
+  return total;
+}
+
+function getAllMediators(db) {
+  const names = new Set();
+  db.loans.forEach(l => { if(l.viaSk==='other'&&l.viaOtherName) names.add(l.viaOtherName); });
+  return [...names];
+}
+
 function fmtMoney(n) {
   if (n===null||n===undefined||n===''||isNaN(n)) return '—';
   return '₹' + Number(n).toLocaleString('en-IN');
@@ -387,7 +470,7 @@ function renderDashboard() {
     {icon:'fas fa-rupee-sign',  label:'Capital Out (Total)',   val:fmtMoney(totalCap),   sub:'All active loans',                c:'var(--gold)',  act:'index'},
     {icon:'fas fa-users',       label:'Customers',             val:db.customers.length,  sub:active.length+' active borrowers', c:'',             act:'customers'},
     {icon:'fas fa-hourglass-half',label:'Interest Due',        val:fmtMoney(intDue),     sub:'Uncollected across all loans',    c:'#e6a817',      act:'index'},
-    {icon:'fas fa-coins',       label:'Interest Collected',    val:fmtMoney(totalInt),   sub:fmtMoney(totalDisc)+' discount',  c:'var(--green)', act:'history'},
+    {icon:'fas fa-coins',       label:'Interest Collected',    val:fmtMoney(totalInt),   sub:fmtMoney(totalDisc)+' discount',  c:'var(--green)', act:'history-interest'},
     {icon:'fas fa-chart-line',  label:'Est. Monthly Income',   val:fmtMoney(monthly),    sub:'Based on active loans',           c:'var(--gold)',  act:null},
     {icon:'fas fa-lock',        label:'Closed Loans',          val:closed.length,        sub:'Tap to view all',                 c:'var(--red)',   act:'closed-loans'},
     {icon:'fas fa-building-columns',label:'Mahavir Gold Capital',val:fmtMoney(dirCap),  sub:dirLoans.length+' direct loans',   c:'#f39c12',      act:'live-loans'},
@@ -405,7 +488,7 @@ function renderDashboard() {
       <div class="stat-value" style="${s.c?'color:'+s.c:''}">${s.val}</div>
       <div class="stat-sub">${s.sub}</div>
     </div>`).join('');
-  const recent=[...db.transactions].sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date)).slice(0,12);
+  const recent=[...db.transactions].sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date)).slice(0,8);
   const imap={loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',sk_payment:'fas fa-handshake',partial_repayment:'fas fa-rotate-left'};
   const lmap={loan:'New Loan',topup:'Top-Up',interest:'Interest',closure:'Closed',sk_payment:'SK Payment',partial_repayment:'Partial Repayment'};
   document.getElementById('recent-list').innerHTML = recent.length ? recent.map(t=>{
@@ -413,7 +496,7 @@ function renderDashboard() {
     const name=t.type==='sk_payment'?'SK Gold':(cust?cust.name:'Unknown');
     const amt=t.type==='interest'?fmtMoney(t.received):fmtMoney(t.amount);
     return `<div class="activity-item"><div class="activity-icon ${t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="activity-text"><div class="activity-name">${name}</div><div class="activity-meta">${lmap[t.type]||t.type} · ${fmtDate(t.date)}</div></div><div class="activity-amount">${amt}</div></div>`;
-  }).join('') : '<div class="empty-state"><i class="fas fa-inbox"></i><p>No activity yet</p></div>';
+  }).join('') + `<div style="text-align:center;padding:12px 0"><button class="btn-ghost btn-sm" onclick="navigateTo('history')" style="width:100%"><i class="fas fa-clock-rotate-left"></i> See More in History</button></div>` : '<div class="empty-state"><i class="fas fa-inbox"></i><p>No activity yet</p></div>';
   document.getElementById('sk-summary').innerHTML=`
     <div class="sk-summary-list">
       <div class="sk-sum-row"><span>Interest via SK</span><span style="color:#a07af5;font-weight:700">${fmtMoney(skPend)}</span></div>
@@ -487,6 +570,72 @@ function renderIndex() {
   }).join('');
 }
 
+// ==================== PAYMENT INPUT UI ====================
+function renderPaymentInputUI(prefix, amount, label='Payment Method') {
+  return `
+    <div class="form-group full-width payment-method-group" id="${prefix}-pmt-group">
+      <label style="color:var(--gold)"><i class="fas fa-wallet"></i> ${label}</label>
+      <div class="payment-split-toggle">
+        <label class="split-toggle-label">
+          <input type="checkbox" id="${prefix}-split" onchange="toggleSplitPayment('${prefix}')"/>
+          <span>Split Payment</span>
+        </label>
+      </div>
+      <div id="${prefix}-pmt-simple">
+        <select id="${prefix}-pmt-type" class="input-field" onchange="updateSimplePayment('${prefix}')">
+          <option value="cash">💵 Cash</option>
+          <option value="bank">🏦 Bank Transfer</option>
+          <option value="sk_outstanding">🤝 SK Gold Outstanding</option>
+          <option value="other_outstanding">👤 Other Mediator Outstanding</option>
+        </select>
+      </div>
+      <div id="${prefix}-pmt-split" class="hidden">
+        <div class="split-payment-grid">
+          <div class="form-group"><label>💵 Cash (₹)</label><input type="number" id="${prefix}-pmt-cash" class="input-field" placeholder="0" oninput="updateSplitPayment('${prefix}')"/></div>
+          <div class="form-group"><label>🏦 Bank (₹)</label><input type="number" id="${prefix}-pmt-bank" class="input-field" placeholder="0" oninput="updateSplitPayment('${prefix}')"/></div>
+          <div class="form-group"><label>🤝 SK Gold (₹)</label><input type="number" id="${prefix}-pmt-sk" class="input-field" placeholder="0" oninput="updateSplitPayment('${prefix}')"/></div>
+          <div class="form-group"><label>👤 Other Mediator (₹)</label><input type="number" id="${prefix}-pmt-other" class="input-field" placeholder="0" oninput="updateSplitPayment('${prefix}')"/></div>
+        </div>
+        <div id="${prefix}-pmt-split-total" class="payment-split-total"></div>
+      </div>
+    </div>`;
+}
+
+function toggleSplitPayment(prefix) {
+  const isSplit = document.getElementById(prefix+'-split').checked;
+  document.getElementById(prefix+'-pmt-simple').classList.toggle('hidden', isSplit);
+  document.getElementById(prefix+'-pmt-split').classList.toggle('hidden', !isSplit);
+}
+
+function updateSimplePayment(prefix) { /* just reads on save */ }
+
+function updateSplitPayment(prefix) {
+  const cash = parseFloat(document.getElementById(prefix+'-pmt-cash')?.value)||0;
+  const bank = parseFloat(document.getElementById(prefix+'-pmt-bank')?.value)||0;
+  const sk   = parseFloat(document.getElementById(prefix+'-pmt-sk')?.value)||0;
+  const oth  = parseFloat(document.getElementById(prefix+'-pmt-other')?.value)||0;
+  const tot  = cash+bank+sk+oth;
+  const el   = document.getElementById(prefix+'-pmt-split-total');
+  if(el) el.innerHTML = `<span style="color:var(--gold);font-weight:700">Total: ${fmtMoney(tot)}</span>`;
+}
+
+function getPaymentObj(prefix, totalAmount) {
+  const isSplit = document.getElementById(prefix+'-split')?.checked;
+  if (!isSplit) {
+    const type = document.getElementById(prefix+'-pmt-type')?.value || 'cash';
+    const p = emptyPayment();
+    p[type] = totalAmount;
+    return p;
+  } else {
+    return {
+      cash: parseFloat(document.getElementById(prefix+'-pmt-cash')?.value)||0,
+      bank: parseFloat(document.getElementById(prefix+'-pmt-bank')?.value)||0,
+      sk_outstanding: parseFloat(document.getElementById(prefix+'-pmt-sk')?.value)||0,
+      other_outstanding: parseFloat(document.getElementById(prefix+'-pmt-other')?.value)||0
+    };
+  }
+}
+
 // ==================== NEW LOAN ====================
 let _nlCustId = null;
 function searchExistingCustomer() {
@@ -534,9 +683,10 @@ async function saveNewLoan() {
   if (viaSk==='other'&&!document.getElementById('nl-other-name').value.trim()) { alert('Enter mediator name'); return; }
   const trackDate=document.getElementById('nl-track-date').value||startDate;
   const imgs=(_pimg['nl']||[]).filter(x=>x.url).map(x=>({id:x.id,url:x.url,createdAt:x.createdAt}));
-  const loan={id:genId(),customerId:cust.id,amount,rate,startDate,trackingStartDate:trackDate,goldWeight:document.getElementById('nl-gold-weight').value||'',goldDesc:document.getElementById('nl-gold-desc').value.trim(),viaSk,viaOtherName:viaSk==='other'?document.getElementById('nl-other-name').value.trim():'',images:imgs,status:'active',createdAt:new Date().toISOString()};
+  const payment = getPaymentObj('nl', amount);
+  const loan={id:genId(),customerId:cust.id,amount,rate,startDate,trackingStartDate:trackDate,goldWeight:document.getElementById('nl-gold-weight').value||'',goldDesc:document.getElementById('nl-gold-desc').value.trim(),viaSk,viaOtherName:viaSk==='other'?document.getElementById('nl-other-name').value.trim():'',images:imgs,payment,status:'active',createdAt:new Date().toISOString()};
   db.loans.push(loan);
-  db.transactions.push({id:genId(),type:'loan',loanId:loan.id,customerId:cust.id,amount,date:startDate,note:'New loan for '+name,createdAt:new Date().toISOString()});
+  db.transactions.push({id:genId(),type:'loan',loanId:loan.id,customerId:cust.id,amount,date:startDate,note:'New loan for '+name,payment,mediatorName:viaSk==='other'?loan.viaOtherName:'',createdAt:new Date().toISOString()});
   await saveDB(db);
   const msg=document.getElementById('nl-msg'); msg.innerHTML=`<i class="fas fa-check-circle"></i> Loan saved! Account: <strong>${cust.account}</strong>${imgs.length?' · '+imgs.length+' photo(s)':''}`; msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),5000);
   _pimg['nl']=[]; renderPendingImgs('nl'); clearNewLoan();
@@ -713,7 +863,8 @@ async function saveInterestReceived() {
   const short=parseFloat(document.getElementById('ir-shortfall').value)||0;
   if(!date||isNaN(rcvd)||rcvd<=0){alert('Fill Payment Date and Amount Received');return;}
   const db=getDB(); const l=db.loans.find(x=>x.id===_selLoanId);
-  db.transactions.push({id:genId(),type:'interest',loanId:_selLoanId,customerId:l.customerId,calculated:calc,received:rcvd,discount:disc,shortfall:short,fromDate:document.getElementById('ir-from-date').value,toDate:document.getElementById('ir-to-date').value,date,note:document.getElementById('ir-notes').value.trim(),viaSk:l.viaSk,createdAt:new Date().toISOString()});
+  const irPayment = getPaymentObj('ir', rcvd);
+  db.transactions.push({id:genId(),type:'interest',loanId:_selLoanId,customerId:l.customerId,calculated:calc,received:rcvd,discount:disc,shortfall:short,fromDate:document.getElementById('ir-from-date').value,toDate:document.getElementById('ir-to-date').value,date,note:document.getElementById('ir-notes').value.trim(),viaSk:l.viaSk,payment:irPayment,mediatorName:l.viaSk==='other'?l.viaOtherName:'',createdAt:new Date().toISOString()});
   await saveDB(db);
   const msg=document.getElementById('ir-msg');
   const parts=[`<i class="fas fa-check-circle"></i> ${fmtMoney(rcvd)} recorded.`];
@@ -867,7 +1018,8 @@ function openLoanModal(loanId) {
     <div class="modal-section-title">Transaction History</div>
     <div class="timeline">${txns.map(t=>{
       let amt; if(t.type==='interest'){amt=fmtMoney(t.received);if(t.discount>0)amt+=` <span class="hist-tag disc">Disc:${fmtMoney(t.discount)}</span>`;if(t.shortfall>0)amt+=` <span class="hist-tag paylater">PayLater:${fmtMoney(t.shortfall)}</span>`;if(t.fromDate&&t.toDate)amt+=`<br><span style="color:var(--text3);font-size:0.78rem">${fmtDate(t.fromDate)}→${fmtDate(t.toDate)}</span>`;}else{amt=fmtMoney(t.amount);}
-      return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div></div></div>`;
+      const pmtStr = t.payment ? `<div style="font-size:0.75rem;color:#8888aa;margin-top:2px"><i class="fas fa-wallet"></i> ${fmtPayment(t.payment)}</div>` : '';
+      return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${pmtStr}</div></div>`;
     }).join('')||'<p style="color:var(--text3);padding:8px 0">No records</p>'}</div>
     <div class="modal-actions">
       ${loan.status==='active'?`<button class="btn-primary" onclick="closeLoanModal();quickInt('${loanId}')"><i class="fas fa-coins"></i> Interest</button><button class="btn-ghost" onclick="closeLoanModal();quickPart('${loanId}')"><i class="fas fa-arrow-down"></i> Repay</button><button class="btn-ghost" onclick="closeLoanModal();preselectTopup('${loanId}')"><i class="fas fa-arrow-up"></i> Top-Up</button><button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button><button class="btn-danger" onclick="closeLoanModal();openCloseModal('${loanId}')"><i class="fas fa-lock"></i> Close</button>`:`<button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button>`}
@@ -894,9 +1046,11 @@ async function confirmCloseLoan(){
   l.status='closed'; l.closureDate=document.getElementById('cl-date').value;
   l.finalRepayment=parseFloat(document.getElementById('cl-repayment').value)||0;
   l.finalInterest=parseFloat(document.getElementById('cl-final-interest').value)||0;
+  l.capitalReceived=parseFloat(document.getElementById('cl-capital').value)||0;
   l.goldReturnDate=document.getElementById('cl-gold-return').value;
   l.closureNotes=document.getElementById('cl-notes').value.trim();
-  db.transactions.push({id:genId(),type:'closure',loanId:_closingId,customerId:l.customerId,amount:l.finalRepayment,date:l.closureDate,note:'Loan closed.',createdAt:new Date().toISOString()});
+  const clPayment = getPaymentObj('cl', l.finalRepayment+l.finalInterest);
+  db.transactions.push({id:genId(),type:'closure',loanId:_closingId,customerId:l.customerId,amount:l.finalRepayment,finalInterest:l.finalInterest,capitalReceived:l.capitalReceived,date:l.closureDate,note:'Loan closed.',payment:clPayment,mediatorName:l.viaSk==='other'?l.viaOtherName:'',createdAt:new Date().toISOString()});
   await saveDB(db); closeCloseModal(); renderLiveLoans(); renderDashboard(); showToast('<i class="fas fa-check-circle"></i> Loan closed!');
 }
 
@@ -927,7 +1081,9 @@ function renderClosedLoans() {
 
 // ==================== SK GOLD ====================
 function renderSkGold() {
-  const db=getDB(); const skP=calcSkPending(db); const skR=db.sk_payments.reduce((s,p)=>s+p.amount,0); const net=Math.max(0,skP-skR);
+  const db=getDB(); const skP=calcSkPending(db); const skR=db.sk_payments.reduce((s,p)=>s+p.amount,0);
+  const netNew=calcSkOutstanding(db); // new comprehensive calculation
+  const net=netNew>0?netNew:Math.max(0,skP-skR);
   const skL=db.loans.filter(l=>isSkLoan(l)&&l.status==='active');
   document.getElementById('sk-stats').innerHTML=`
     <div class="stat-card"><div class="stat-icon" style="color:#a07af5"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via SK</div><div class="stat-value" style="color:#a07af5">${fmtMoney(skP)}</div><div class="stat-sub">Collected from SK customers</div></div>
@@ -964,12 +1120,31 @@ function renderHistory() {
     const name=t.type==='sk_payment'?'SK Gold':(c?c.name:'—');
     const amt=t.type==='interest'?fmtMoney(t.received):fmtMoney(t.amount);
     let tags=''; if(t.type==='interest'){if(t.discount>0)tags+=`<span class="hist-tag disc">Discount: ${fmtMoney(t.discount)}</span>`;if(t.shortfall>0)tags+=`<span class="hist-tag paylater">Pay Later: ${fmtMoney(t.shortfall)}</span>`;if(t.fromDate&&t.toDate)tags+=`<span class="hist-tag period">${fmtDate(t.fromDate)} → ${fmtDate(t.toDate)}</span>`;}
-    const editBtn=t.type==='interest'?`<button class="btn-ghost btn-sm" onclick="editTxn('${t.id}')"><i class="fas fa-pen"></i></button>`:'';
-    return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type} · ${name}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${tags?`<div class="tl-tags">${tags}</div>`:''}</div><div style="display:flex;gap:4px;align-self:center;flex-shrink:0">${editBtn}<button class="btn-danger btn-sm" onclick="deleteTransaction('${t.id}')"><i class="fas fa-trash"></i></button></div></div>`;
+    const pmtTag = t.payment ? `<div style="font-size:0.75rem;color:#8888aa;margin-top:3px"><i class="fas fa-wallet"></i> ${fmtPayment(t.payment)}</div>` : '';
+    const editBtn=`<button class="btn-ghost btn-sm" onclick="editTxn('${t.id}')"><i class="fas fa-pen"></i></button>`;
+    return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type} · ${name}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${tags?`<div class="tl-tags">${tags}</div>`:''} ${pmtTag}</div><div style="display:flex;gap:4px;align-self:center;flex-shrink:0">${editBtn}<button class="btn-danger btn-sm" onclick="deleteTransaction('${t.id}')"><i class="fas fa-trash"></i></button></div></div>`;
   }).join('');
 }
 function editTxn(id) {
-  const db=getDB(); const t=db.transactions.find(x=>x.id===id); if(!t||t.type!=='interest') return;
+  const db=getDB(); const t=db.transactions.find(x=>x.id===id); if(!t) return;
+  const typeLabels={loan:'New Loan',topup:'Top-Up',interest:'Interest',closure:'Closure',partial_repayment:'Partial Repayment',sk_payment:'SK Payment',mediator_payment:'Mediator Payment'};
+  document.getElementById('edit-modal-title').innerHTML=`<i class="fas fa-pen"></i> Edit ${typeLabels[t.type]||t.type}`;
+  // For interest entries show full editor
+  if (t.type !== 'interest') {
+    // Generic editor for non-interest transactions
+    document.getElementById('edit-modal-body').innerHTML=`
+      <div class="form-group"><label>Date</label><input type="date" id="et-date" class="input-field" value="${t.date||''}"></div>
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="et-amt" class="input-field" value="${t.amount||0}"></div>
+      <div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>`;
+    document.getElementById('edit-save-btn').onclick=async()=>{
+      t.date=document.getElementById('et-date').value;
+      t.amount=parseFloat(document.getElementById('et-amt').value)||0;
+      t.note=document.getElementById('et-note').value.trim();
+      await saveDB(db); closeEditModal(); renderHistory(); renderDashboard();
+    };
+    document.getElementById('edit-modal').classList.remove('hidden');
+    return;
+  }
   document.getElementById('edit-modal-title').innerHTML='<i class="fas fa-coins"></i> Edit Interest Entry';
   document.getElementById('edit-modal-body').innerHTML=`<div class="form-group"><label>Date</label><input type="date" id="et-date" class="input-field" value="${t.date}"></div><div class="form-group"><label>From Date</label><input type="date" id="et-from" class="input-field" value="${t.fromDate||''}"></div><div class="form-group"><label>To Date</label><input type="date" id="et-to" class="input-field" value="${t.toDate||''}"></div><div class="form-group"><label>Calculated (₹)</label><input type="number" id="et-calc" class="input-field" value="${t.calculated||0}"></div><div class="form-group"><label>Received (₹)</label><input type="number" id="et-rcvd" class="input-field" value="${t.received||0}" oninput="etGap()"></div><div class="form-group"><label>Discount (₹)</label><input type="number" id="et-disc" class="input-field" value="${t.discount||0}"></div><div class="form-group"><label>Pay Later (₹)</label><input type="number" id="et-short" class="input-field" value="${t.shortfall||0}"></div><div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>`;
   document.getElementById('edit-save-btn').onclick=async()=>{t.date=document.getElementById('et-date').value;t.fromDate=document.getElementById('et-from').value;t.toDate=document.getElementById('et-to').value;t.calculated=parseFloat(document.getElementById('et-calc').value)||0;t.received=parseFloat(document.getElementById('et-rcvd').value)||0;t.discount=parseFloat(document.getElementById('et-disc').value)||0;t.shortfall=parseFloat(document.getElementById('et-short').value)||0;t.note=document.getElementById('et-note').value.trim();await saveDB(db);closeEditModal();renderHistory();renderDashboard();};
@@ -1248,6 +1423,100 @@ function shareWhatsApp(loanId) {
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
+// ==================== OTHER MEDIATOR PAGE ====================
+function renderOtherMediator() {
+  const db = getDB();
+  const mediators = getAllMediators(db);
+  const el = document.getElementById('om-content');
+  if (!mediators.length) {
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-user-tie"></i><p>No other mediator loans yet.<br>Create a loan with "Other Mediator" source to see it here.</p></div>';
+    return;
+  }
+  el.innerHTML = mediators.map(name => {
+    const outstanding = calcMediatorOutstanding(db, name);
+    const loans = db.loans.filter(l=>l.viaSk==='other'&&l.viaOtherName===name&&l.status==='active');
+    const capital = loans.reduce((s,l)=>s+getLoanTotal(l),0);
+    const history = db.transactions.filter(t=>t.mediatorName===name&&t.type==='mediator_payment').sort((a,b)=>new Date(b.date)-new Date(a.date));
+    return `
+      <div class="form-card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+          <div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--gold)">${name}</div>
+            <div style="font-size:0.82rem;color:var(--text3)">${loans.length} active loan${loans.length!==1?'s':''} · Capital: ${fmtMoney(capital)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:0.75rem;color:var(--text3);text-transform:uppercase;font-weight:700">Outstanding</div>
+            <div style="font-size:1.5rem;font-weight:800;color:${outstanding>0?'var(--red)':'var(--green)'}">${fmtMoney(Math.abs(outstanding))}</div>
+            <div style="font-size:0.75rem;color:var(--text3)">${outstanding>0?'They owe you':'You owe them'}</div>
+          </div>
+        </div>
+        <div class="form-section-title"><i class="fas fa-plus"></i> Record Settlement from ${name}</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Amount (₹)</label><input type="number" id="om-amt-${name.replace(/\s/g,'_')}" class="input-field" placeholder="0"/></div>
+          <div class="form-group"><label>Date</label><input type="date" id="om-date-${name.replace(/\s/g,'_')}" class="input-field" value="${new Date().toISOString().split('T')[0]}"/></div>
+          <div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-${name.replace(/\s/g,'_')}" class="input-field" placeholder="Optional"/></div>
+        </div>
+        <button class="btn-primary" onclick="saveMediatorPayment('${name}')"><i class="fas fa-save"></i> Record Settlement</button>
+        <div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>
+        <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
+      </div>`;
+  }).join('');
+}
+
+async function saveMediatorPayment(mediatorName) {
+  const key = mediatorName.replace(/\s/g,'_');
+  const amount = parseFloat(document.getElementById('om-amt-'+key)?.value);
+  const date = document.getElementById('om-date-'+key)?.value;
+  if (!amount||!date) { alert('Fill Amount and Date'); return; }
+  const db = getDB();
+  db.transactions.push({id:genId(),type:'mediator_payment',amount,date,mediatorName,note:document.getElementById('om-notes-'+key)?.value.trim()||'',createdAt:new Date().toISOString()});
+  await saveDB(db);
+  showToast('<i class="fas fa-check-circle"></i> Settlement recorded!');
+  renderOtherMediator();
+}
+
+// ==================== PAYMENT INFO PAGE ====================
+function renderPaymentInfo() {
+  const db = getDB();
+  const today = new Date().toISOString().split('T')[0];
+  // Aggregate all payments by method
+  let totals = {cash:0, bank:0, sk_outstanding:0, other_outstanding:0};
+  let monthly = {};
+  db.transactions.forEach(t => {
+    if (!t.payment) return;
+    const p = t.payment;
+    const amt = t.type==='interest' ? (t.received||0) : (t.amount||0);
+    const month = (t.date||'').substring(0,7);
+    if (!monthly[month]) monthly[month] = {cash:0,bank:0,sk_outstanding:0,other_outstanding:0};
+    ['cash','bank','sk_outstanding','other_outstanding'].forEach(k=>{
+      if(p[k]>0){ totals[k]+=(p[k]||0); monthly[month][k]+=(p[k]||0); }
+    });
+  });
+  const totalAll = totals.cash+totals.bank+totals.sk_outstanding+totals.other_outstanding;
+  const skOut = calcSkOutstanding(db);
+  const mediators = getAllMediators(db);
+  document.getElementById('pi-content').innerHTML = `
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-icon" style="color:#22d87a"><i class="fas fa-money-bill-wave"></i></div><div class="stat-label">Cash Total</div><div class="stat-value" style="color:#22d87a">${fmtMoney(totals.cash)}</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-building-columns"></i></div><div class="stat-label">Bank Transfer Total</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(totals.bank)}</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card"><div class="stat-icon" style="color:#a07af5"><i class="fas fa-handshake"></i></div><div class="stat-label">Via SK Outstanding</div><div class="stat-value" style="color:#a07af5">${fmtMoney(totals.sk_outstanding)}</div><div class="stat-sub">SK net: ${fmtMoney(skOut)}</div></div>
+      <div class="stat-card"><div class="stat-icon" style="color:#f39c12"><i class="fas fa-user-tie"></i></div><div class="stat-label">Via Other Mediator</div><div class="stat-value" style="color:#f39c12">${fmtMoney(totals.other_outstanding)}</div><div class="stat-sub">${mediators.length} mediator${mediators.length!==1?'s':''}</div></div>
+    </div>
+    <div class="form-card">
+      <div class="form-section-title"><i class="fas fa-calendar"></i> Monthly Breakdown</div>
+      ${Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([month,p])=>`
+        <div class="sk-sum-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+          <div style="font-weight:700;color:var(--text);margin-bottom:4px">${month}</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.85rem">
+            ${p.cash>0?`<span><i class="fas fa-money-bill-wave" style="color:#22d87a"></i> Cash: ${fmtMoney(p.cash)}</span>`:''}
+            ${p.bank>0?`<span><i class="fas fa-building-columns" style="color:#4f8ef7"></i> Bank: ${fmtMoney(p.bank)}</span>`:''}
+            ${p.sk_outstanding>0?`<span><i class="fas fa-handshake" style="color:#a07af5"></i> SK: ${fmtMoney(p.sk_outstanding)}</span>`:''}
+            ${p.other_outstanding>0?`<span><i class="fas fa-user-tie" style="color:#f39c12"></i> Mediator: ${fmtMoney(p.other_outstanding)}</span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 // ==================== EXPORT / IMPORT / RESET ====================
 function exportData() {
   const db=getDB(); const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
@@ -1291,5 +1560,7 @@ Object.assign(window,{
   saveSkPayment,exportData,importData,resetSoftware,
   handleImgSelect,renderPendingImgs,removePendingImg,viewImgFull,addMoreImgs,deleteLoanImg,
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
-  showImgOptions,openImgInput,_doAddImg
+  showImgOptions,openImgInput,_doAddImg,
+  renderOtherMediator,renderPaymentInfo,saveMediatorPayment,
+  toggleSplitPayment,updateSplitPayment,updateSimplePayment
 });
