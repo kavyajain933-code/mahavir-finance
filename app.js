@@ -1081,18 +1081,34 @@ function renderClosedLoans() {
 
 // ==================== SK GOLD ====================
 function renderSkGold() {
-  const db=getDB(); const skP=calcSkPending(db); const skR=db.sk_payments.reduce((s,p)=>s+p.amount,0);
-  const netNew=calcSkOutstanding(db); // new comprehensive calculation
-  const net=netNew>0?netNew:Math.max(0,skP-skR);
+  const db=getDB();
+  const today=new Date().toISOString().split('T')[0];
   const skL=db.loans.filter(l=>isSkLoan(l)&&l.status==='active');
+  const skCap=skL.reduce((s,l)=>s+getLoanTotal(l),0);
+  // Interest collected from SK loan customers
+  const skIntTxns=db.transactions.filter(t=>t.type==='interest'&&isSkLoan(db.loans.find(l=>l.id===t.loanId)||{}));
+  const skIntCollected=skIntTxns.reduce((s,t)=>s+(t.received||0),0);
+  // Settlements received from SK
+  const skSettlements=db.sk_payments.reduce((s,p)=>s+p.amount,0);
+  // Payments received via SK outstanding (interest/closure paid TO SK by borrower)
+  const skViaPmt=db.transactions.filter(t=>t.payment&&(t.payment.sk_outstanding||0)>0).reduce((s,t)=>s+(t.payment.sk_outstanding||0),0);
+  // Capital given via SK outstanding (SK paid borrower on our behalf — SK owes us less)
+  const skCapGiven=db.transactions.filter(t=>t.type==='loan'&&t.payment&&(t.payment.sk_outstanding||0)>0).reduce((s,t)=>s+(t.payment.sk_outstanding||0),0);
+  // Outstanding = what SK owes us
+  // SK owes us: interest collected by SK customers + payments made to SK - capital SK gave on our behalf - settlements received
+  const outstanding = skIntCollected + skViaPmt - skCapGiven - skSettlements;
+  const skR=skSettlements;
+
   document.getElementById('sk-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-icon" style="color:#a07af5"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via SK</div><div class="stat-value" style="color:#a07af5">${fmtMoney(skP)}</div><div class="stat-sub">Collected from SK customers</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#a07af5"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via SK</div><div class="stat-value" style="color:#a07af5">${fmtMoney(skIntCollected)}</div><div class="stat-sub">Collected from SK customers</div></div>
     <div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-check-circle"></i></div><div class="stat-label">Received from SK</div><div class="stat-value" style="color:var(--green)">${fmtMoney(skR)}</div><div class="stat-sub">Settlements recorded</div></div>
-    <div class="stat-card"><div class="stat-icon" style="color:var(--gold)"><i class="fas fa-exclamation-circle"></i></div><div class="stat-label">Net Pending</div><div class="stat-value" style="color:var(--gold)">${fmtMoney(net)}</div><div class="stat-sub">Still to receive from SK</div></div>
-    <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">SK Active Loans</div><div class="stat-value">${skL.length}</div><div class="stat-sub">Capital: ${fmtMoney(skL.reduce((s,l)=>s+getLoanTotal(l),0))}</div></div>`;
+    <div class="stat-card clickable" onclick="navigateTo('payment-info')" style="border-color:rgba(232,190,90,0.3)"><i class="fas fa-arrow-right stat-arrow"></i><div class="stat-icon" style="color:${outstanding>0?'var(--red)':'var(--green)'}"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Outstanding</div><div class="stat-value" style="color:${outstanding>0?'var(--red)':'var(--green)'}">${fmtMoney(Math.abs(outstanding))}</div><div class="stat-sub">${outstanding>0?'SK owes you':'You owe SK'}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:var(--gold)"><i class="fas fa-arrow-up-right-dots"></i></div><div class="stat-label">Via SK Payments</div><div class="stat-value" style="color:var(--gold)">${fmtMoney(skViaPmt)}</div><div class="stat-sub">Interest/closure paid to SK</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via SK</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(skCapGiven)}</div><div class="stat-sub">SK paid borrowers for you</div></div>
+    <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">SK Active Loans</div><div class="stat-value">${skL.length}</div><div class="stat-sub">Capital: ${fmtMoney(skCap)}</div></div>`;
   document.getElementById('sk-date').value=new Date().toISOString().split('T')[0];
   const hist=[...db.sk_payments].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  document.getElementById('sk-history').innerHTML=hist.length?hist.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join(''):'<div class="empty-state"><i class="fas fa-handshake"></i><p>No settlements yet</p></div>';
+  document.getElementById('sk-history').innerHTML=hist.length?hist.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from SK</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join(''):'<div class="empty-state"><i class="fas fa-handshake"></i><p>No settlements yet</p></div>';
 }
 async function saveSkPayment() {
   const amount=parseFloat(document.getElementById('sk-amount').value); const date=document.getElementById('sk-date').value;
@@ -1433,38 +1449,48 @@ function renderOtherMediator() {
     return;
   }
   el.innerHTML = mediators.map(name => {
-    const outstanding = calcMediatorOutstanding(db, name);
+    const key = name.replace(/[^a-zA-Z0-9]/g,'_');
     const loans = db.loans.filter(l=>l.viaSk==='other'&&l.viaOtherName===name&&l.status==='active');
     const capital = loans.reduce((s,l)=>s+getLoanTotal(l),0);
+    // Interest collected from this mediator's customers
+    const medIntTxns = db.transactions.filter(t=>t.type==='interest'&&t.mediatorName===name);
+    const intCollected = medIntTxns.reduce((s,t)=>s+(t.received||0),0);
+    // Settlements received from mediator
+    const settlements = db.transactions.filter(t=>t.type==='mediator_payment'&&t.mediatorName===name).reduce((s,t)=>s+t.amount,0);
+    // Payments made TO mediator (interest/closure via other_outstanding)
+    const viaPmt = db.transactions.filter(t=>t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
+    // Capital given via this mediator
+    const capGiven = db.transactions.filter(t=>t.type==='loan'&&t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
+    // Outstanding = mediator owes you
+    const outstanding = intCollected + viaPmt - capGiven - settlements;
     const history = db.transactions.filter(t=>t.mediatorName===name&&t.type==='mediator_payment').sort((a,b)=>new Date(b.date)-new Date(a.date));
+
     return `
-      <div class="form-card" style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-          <div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--gold)">${name}</div>
-            <div style="font-size:0.82rem;color:var(--text3)">${loans.length} active loan${loans.length!==1?'s':''} · Capital: ${fmtMoney(capital)}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:0.75rem;color:var(--text3);text-transform:uppercase;font-weight:700">Outstanding</div>
-            <div style="font-size:1.5rem;font-weight:800;color:${outstanding>0?'var(--red)':'var(--green)'}">${fmtMoney(Math.abs(outstanding))}</div>
-            <div style="font-size:0.75rem;color:var(--text3)">${outstanding>0?'They owe you':'You owe them'}</div>
-          </div>
-        </div>
+      <div style="margin-bottom:8px;font-size:1.2rem;font-weight:800;color:var(--gold);padding:4px 0">${name}</div>
+      <div class="sk-stats-row" style="margin-bottom:16px">
+        <div class="stat-card"><div class="stat-icon" style="color:#f39c12"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via ${name}</div><div class="stat-value" style="color:#f39c12">${fmtMoney(intCollected)}</div><div class="stat-sub">Collected from customers</div></div>
+        <div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-check-circle"></i></div><div class="stat-label">Received from ${name}</div><div class="stat-value" style="color:var(--green)">${fmtMoney(settlements)}</div><div class="stat-sub">Settlements recorded</div></div>
+        <div class="stat-card" style="border-color:rgba(232,190,90,0.3)"><div class="stat-icon" style="color:${outstanding>0?'var(--red)':'var(--green)'}"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Outstanding</div><div class="stat-value" style="color:${outstanding>0?'var(--red)':'var(--green)'}">${fmtMoney(Math.abs(outstanding))}</div><div class="stat-sub">${outstanding>0?name+' owes you':'You owe '+name}</div></div>
+        <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via ${name}</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(capGiven)}</div><div class="stat-sub">${name} paid borrowers for you</div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">Active Loans</div><div class="stat-value">${loans.length}</div><div class="stat-sub">Capital: ${fmtMoney(capital)}</div></div>
+      </div>
+      <div class="form-card" style="margin-bottom:24px">
         <div class="form-section-title"><i class="fas fa-plus"></i> Record Settlement from ${name}</div>
         <div class="form-grid">
-          <div class="form-group"><label>Amount (₹)</label><input type="number" id="om-amt-${name.replace(/\s/g,'_')}" class="input-field" placeholder="0"/></div>
-          <div class="form-group"><label>Date</label><input type="date" id="om-date-${name.replace(/\s/g,'_')}" class="input-field" value="${new Date().toISOString().split('T')[0]}"/></div>
-          <div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-${name.replace(/\s/g,'_')}" class="input-field" placeholder="Optional"/></div>
+          <div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="om-amt-${key}" class="input-field" placeholder="0"/></div>
+          <div class="form-group"><label>Date *</label><input type="date" id="om-date-${key}" class="input-field" value="${new Date().toISOString().split('T')[0]}"/></div>
+          <div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-${key}" class="input-field" placeholder="Optional"/></div>
         </div>
-        <button class="btn-primary" onclick="saveMediatorPayment('${name}')"><i class="fas fa-save"></i> Record Settlement</button>
+        <div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment('${name}')"><i class="fas fa-save"></i> Record Settlement</button></div>
         <div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>
-        <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
-      </div>`;
+        <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from ${name}</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border2);margin:8px 0 20px"/>`;
   }).join('');
 }
 
 async function saveMediatorPayment(mediatorName) {
-  const key = mediatorName.replace(/\s/g,'_');
+  const key = mediatorName.replace(/[^a-zA-Z0-9]/g,'_');
   const amount = parseFloat(document.getElementById('om-amt-'+key)?.value);
   const date = document.getElementById('om-date-'+key)?.value;
   if (!amount||!date) { alert('Fill Amount and Date'); return; }
