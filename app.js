@@ -1478,6 +1478,41 @@ function shareWhatsApp(loanId) {
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
+// ==================== MEDIATOR TRANSACTION HISTORY HELPER ====================
+function renderMediatorTxnHistory(db, name) {
+  const imap3 = {loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',mediator_payment:'fas fa-handshake'};
+  const lmap3 = {loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',mediator_payment:'Settlement'};
+  const medTxns = db.transactions.filter(t => {
+    if (t.type === 'mediator_payment' && t.mediatorName === name) return true;
+    const loan2 = db.loans.find(l => l.id === t.loanId);
+    if (!loan2) return false;
+    if (loan2.viaSk === 'other' && loan2.viaOtherName === name) return true;
+    if (t.payment && (t.payment.other_outstanding||0) > 0 && t.mediatorName === name) return true;
+    return false;
+  }).sort((a,b) => new Date(b.createdAt||b.date) - new Date(a.createdAt||a.date));
+  if (!medTxns.length) return '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No transactions yet</div>';
+  return medTxns.map(t => {
+    const loan2 = db.loans.find(l => l.id === t.loanId);
+    const cust2 = loan2 ? db.customers.find(c => c.id === loan2.customerId) : null;
+    const tname = t.type === 'mediator_payment' ? name : (cust2 ? cust2.name : '—');
+    const amt2  = t.type === 'interest' ? fmtMoney(t.received||0) : fmtMoney(t.amount||0);
+    const tc    = t.type==='mediator_payment'?'var(--green)':t.type==='loan'?'#4f8ef7':t.type==='interest'?'#f39c12':t.type==='closure'?'var(--red)':'var(--text2)';
+    const pmtStr = t.payment && (t.payment.other_outstanding||0) > 0
+      ? '<div class="tl-tags" style="margin-top:4px"><span class="hist-tag" style="background:rgba(243,156,18,0.15);color:#f39c12">Mediator: ' + fmtMoney(t.payment.other_outstanding) + '</span></div>'
+      : '';
+    const iconCls = t.type==='mediator_payment'?'sk_payment':t.type==='partial_repayment'?'partial_repayment':t.type;
+    return '<div class="activity-item">'
+      + '<div class="activity-icon ' + iconCls + '"><i class="' + (imap3[t.type]||'fas fa-circle') + '"></i></div>'
+      + '<div class="activity-text">'
+      + '<div class="activity-name">' + tname + ' <span style="font-size:0.75rem;font-weight:600;color:' + tc + ';background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px">' + (lmap3[t.type]||t.type) + '</span></div>'
+      + '<div class="activity-meta">' + fmtDate(t.date) + (cust2 ? ' · ' + cust2.account : '') + '</div>'
+      + pmtStr
+      + '</div>'
+      + '<div class="activity-amount" style="color:' + tc + '">' + amt2 + '</div>'
+      + '</div>';
+  }).join('');
+}
+
 // ==================== OTHER MEDIATOR PAGE ====================
 function renderOtherMediator() {
   const db = getDB();
@@ -1524,36 +1559,7 @@ function renderOtherMediator() {
         <div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>
         <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from ${name}</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
         <div class="form-section-title" style="margin-top:20px"><i class="fas fa-clock-rotate-left"></i> All Transactions</div>
-        <div>${(()=>{
-          const imap3={loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',mediator_payment:'fas fa-handshake'};
-          const lmap3={loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',mediator_payment:'Settlement'};
-          const medTxns = db.transactions.filter(t=>{
-            if(t.type==='mediator_payment'&&t.mediatorName===name) return true;
-            const loan2=db.loans.find(l=>l.id===t.loanId);
-            if(!loan2) return false;
-            if(loan2.viaSk==='other'&&loan2.viaOtherName===name) return true;
-            if(t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name) return true;
-            return false;
-          }).sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date));
-          if(!medTxns.length) return '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No transactions yet</div>';
-          return medTxns.map(t=>{
-            const loan2=db.loans.find(l=>l.id===t.loanId);
-            const cust2=loan2?db.customers.find(c=>c.id===loan2.customerId):null;
-            const tname=t.type==='mediator_payment'?name:(cust2?cust2.name:'—');
-            const amt2=t.type==='interest'?fmtMoney(t.received||0):fmtMoney(t.amount||0);
-            const pmtTag2=t.payment&&(t.payment.other_outstanding||0)>0?`<span class="hist-tag" style="background:rgba(243,156,18,0.15);color:#f39c12">Mediator: ${fmtMoney(t.payment.other_outstanding)}</span>`:'';
-            const tc=t.type==='mediator_payment'?'var(--green)':t.type==='loan'?'#4f8ef7':t.type==='interest'?'#f39c12':t.type==='closure'?'var(--red)':'var(--text2)';
-            return \`<div class="activity-item">
-              <div class="activity-icon \${t.type==='mediator_payment'?'sk_payment':t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="\${imap3[t.type]||'fas fa-circle'}"></i></div>
-              <div class="activity-text">
-                <div class="activity-name">\${tname} <span style="font-size:0.75rem;font-weight:600;color:\${tc};background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px">\${lmap3[t.type]||t.type}</span></div>
-                <div class="activity-meta">\${fmtDate(t.date)}\${cust2?' · '+cust2.account:''}</div>
-                \${pmtTag2?\`<div class="tl-tags" style="margin-top:4px">\${pmtTag2}</div>\`:''}
-              </div>
-              <div class="activity-amount" style="color:\${tc}">\${amt2}</div>
-            </div>\`;
-          }).join('');
-        })()}</div>
+        <div>${renderMediatorTxnHistory(db, name)}</div>
       </div>
       <hr style="border:none;border-top:1px solid var(--border2);margin:8px 0 20px"/>`;
   }).join('');
