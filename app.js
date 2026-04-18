@@ -807,7 +807,8 @@ async function saveTopUp() {
   if(!amount||!date){alert('Fill Amount and Date');return;}
   const db=getDB(); const l=db.loans.find(x=>x.id===_selLoanId);
   const imgs=(_pimg['tu']||[]).filter(x=>x.url).map(x=>({id:x.id,url:x.url,createdAt:x.createdAt}));
-  db.transactions.push({id:genId(),type:'topup',loanId:_selLoanId,customerId:l.customerId,amount,date,note:document.getElementById('tu-notes').value.trim(),images:imgs,createdAt:new Date().toISOString()});
+  const tuPayment=getPaymentObj('tu',amount);
+  db.transactions.push({id:genId(),type:'topup',loanId:_selLoanId,customerId:l.customerId,amount,date,note:document.getElementById('tu-notes').value.trim(),images:imgs,payment:tuPayment,mediatorName:l.viaSk==='other'?l.viaOtherName:'',createdAt:new Date().toISOString()});
   await saveDB(db);
   const msg=document.getElementById('tu-msg'); msg.innerHTML=`<i class="fas fa-check-circle"></i> Top-up ${fmtMoney(amount)} saved.`; msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),3000);
   document.getElementById('tu-amount').value=''; document.getElementById('tu-notes').value='';
@@ -823,7 +824,8 @@ async function savePartialRepayment() {
   if(!amount||!date){alert('Fill Amount and Date');return;}
   const db=getDB(); const l=db.loans.find(x=>x.id===_selLoanId); const out=getLoanTotal(l);
   if(amount>=out){if(!confirm(`Amount equals/exceeds outstanding (${fmtMoney(out)}). Continue?`))return;}
-  db.transactions.push({id:genId(),type:'partial_repayment',loanId:_selLoanId,customerId:l.customerId,amount,date,note:document.getElementById('pr-notes').value.trim(),createdAt:new Date().toISOString()});
+  const prPayment=getPaymentObj('pr',amount);
+  db.transactions.push({id:genId(),type:'partial_repayment',loanId:_selLoanId,customerId:l.customerId,amount,date,note:document.getElementById('pr-notes').value.trim(),payment:prPayment,mediatorName:l.viaSk==='other'?l.viaOtherName:'',createdAt:new Date().toISOString()});
   await saveDB(db);
   const msg=document.getElementById('pr-msg'); msg.innerHTML=`<i class="fas fa-check-circle"></i> ${fmtMoney(amount)} recorded. Remaining: ${fmtMoney(Math.max(0,out-amount))}`; msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),5000);
   document.getElementById('pr-amount').value=''; document.getElementById('pr-notes').value=''; document.getElementById('pr-remaining').value='';
@@ -1677,7 +1679,7 @@ function renderPaymentInfo() {
     const p = t.payment || {};
     // Inflows = money coming TO you (interest received, closure repayment)
     // Outflows = money going OUT from you (new loan capital given, top-up)
-    const isInflow = (t.type === 'interest' || t.type === 'closure' || t.type === 'sk_payment' || t.type === 'mediator_payment');
+    const isInflow = (t.type === 'interest' || t.type === 'closure' || t.type === 'sk_payment' || t.type === 'mediator_payment' || t.type === 'partial_repayment');
     const isOutflow = (t.type === 'loan' || t.type === 'topup');
 
     if (isInflow) {
@@ -1710,7 +1712,7 @@ function renderPaymentInfo() {
     const month = (t.date || '').substring(0,7);
     if (!month) return;
     if (!monthly[month]) monthly[month] = {cashIn:0,cashOut:0,bankIn:0,bankOut:0,skIn:0,skOut:0,omIn:0,omOut:0};
-    const isIn = (t.type==='interest'||t.type==='closure'||t.type==='sk_payment'||t.type==='mediator_payment');
+    const isIn = (t.type==='interest'||t.type==='closure'||t.type==='sk_payment'||t.type==='mediator_payment'||t.type==='partial_repayment');
     const isOut = (t.type==='loan'||t.type==='topup');
     if (isIn)  { monthly[month].cashIn+=(p.cash||0); monthly[month].bankIn+=(p.bank||0); monthly[month].skIn+=(p.sk_outstanding||0); monthly[month].omIn+=(p.other_outstanding||0); }
     if (isOut) { monthly[month].cashOut+=(p.cash||0); monthly[month].bankOut+=(p.bank||0); monthly[month].skOut+=(p.sk_outstanding||0); monthly[month].omOut+=(p.other_outstanding||0); }

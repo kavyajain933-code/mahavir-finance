@@ -210,6 +210,19 @@
               <label><i class="fas fa-camera" style="color:var(--gold)"></i> Additional Gold Photos</label>
               <div class="image-upload-area"><div class="image-upload-btn" onclick="showImgOptions('tu')"><i class="fas fa-camera"></i> Add / Take Photo</div><input type="file" id="tu-img-input" accept="image/*" capture="environment" multiple style="display:none" onchange="handleImgSelect('tu',this)"/><div class="image-preview-grid" id="tu-img-preview"></div></div>
             </div>
+            <div class="form-group full-width" style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px">
+              <label style="color:var(--gold);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-wallet"></i> How was Top-Up capital given?</label>
+              <div style="margin-top:10px">
+                <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:0.85rem;color:var(--text2);cursor:pointer"><input type="checkbox" id="tu-split" onchange="toggleSplitPayment('tu')" style="accent-color:var(--gold);width:16px;height:16px;"/> Split Payment</label>
+                <div id="tu-pmt-simple"><select id="tu-pmt-type" class="input-field"><option value="cash">💵 Cash</option><option value="bank">🏦 Bank Transfer</option><option value="sk_outstanding">🤝 SK Gold Outstanding</option><option value="other_outstanding">👤 Other Mediator Outstanding</option></select></div>
+                <div id="tu-pmt-split" class="hidden"><div class="form-grid">
+                  <div class="form-group"><label>💵 Cash (₹)</label><input type="number" id="tu-pmt-cash" class="input-field" placeholder="0" oninput="updateSplitPayment('tu')"/></div>
+                  <div class="form-group"><label>🏦 Bank (₹)</label><input type="number" id="tu-pmt-bank" class="input-field" placeholder="0" oninput="updateSplitPayment('tu')"/></div>
+                  <div class="form-group"><label>🤝 SK Gold (₹)</label><input type="number" id="tu-pmt-sk" class="input-field" placeholder="0" oninput="updateSplitPayment('tu')"/></div>
+                  <div class="form-group"><label>👤 Other Mediator (₹)</label><input type="number" id="tu-pmt-other" class="input-field" placeholder="0" oninput="updateSplitPayment('tu')"/></div>
+                </div><div id="tu-pmt-split-total" style="color:var(--gold);font-weight:700;margin-top:6px"></div></div>
+              </div>
+            </div>
           </div>
           <div class="form-actions"><button class="btn-primary" onclick="saveTopUp()"><i class="fas fa-save"></i> Save Top-Up</button></div>
           <div id="tu-msg" class="success-msg hidden"></div>
@@ -231,6 +244,19 @@
             <div class="form-group"><label>Date *</label><input type="date" id="pr-date" class="input-field"/></div>
             <div class="form-group"><label>Balance After (₹)</label><input type="number" id="pr-remaining" class="input-field" readonly/></div>
             <div class="form-group full-width"><label>Notes</label><input type="text" id="pr-notes" class="input-field" placeholder="Optional note..."/></div>
+          <div class="form-group full-width" style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px">
+            <label style="color:var(--gold);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-wallet"></i> How was repayment received?</label>
+            <div style="margin-top:10px">
+              <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:0.85rem;color:var(--text2);cursor:pointer"><input type="checkbox" id="pr-split" onchange="toggleSplitPayment('pr')" style="accent-color:var(--gold);width:16px;height:16px;"/> Split Payment</label>
+              <div id="pr-pmt-simple"><select id="pr-pmt-type" class="input-field"><option value="cash">💵 Cash</option><option value="bank">🏦 Bank Transfer</option><option value="sk_outstanding">🤝 SK Gold Outstanding</option><option value="other_outstanding">👤 Other Mediator Outstanding</option></select></div>
+              <div id="pr-pmt-split" class="hidden"><div class="form-grid">
+                <div class="form-group"><label>💵 Cash (₹)</label><input type="number" id="pr-pmt-cash" class="input-field" placeholder="0" oninput="updateSplitPayment('pr')"/></div>
+                <div class="form-group"><label>🏦 Bank (₹)</label><input type="number" id="pr-pmt-bank" class="input-field" placeholder="0" oninput="updateSplitPayment('pr')"/></div>
+                <div class="form-group"><label>🤝 SK Gold (₹)</label><input type="number" id="pr-pmt-sk" class="input-field" placeholder="0" oninput="updateSplitPayment('pr')"/></div>
+                <div class="form-group"><label>👤 Other Mediator (₹)</label><input type="number" id="pr-pmt-other" class="input-field" placeholder="0" oninput="updateSplitPayment('pr')"/></div>
+              </div><div id="pr-pmt-split-total" style="color:var(--gold);font-weight:700;margin-top:6px"></div></div>
+            </div>
+          </div>
           </div>
           <div class="form-actions"><button class="btn-blue" onclick="savePartialRepayment()"><i class="fas fa-rotate-left"></i> Record Repayment</button></div>
           <div id="pr-msg" class="success-msg hidden"></div>
@@ -467,6 +493,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=52"></script>
+<script type="module" src="app.js?v=53"></script>
 </body>
 </html>
