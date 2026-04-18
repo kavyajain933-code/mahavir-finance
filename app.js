@@ -403,6 +403,19 @@ function toggleOtherSourceField(prefix) {
   const v = document.getElementById(prefix+'-via-sk').value;
   const g = document.getElementById(prefix+'-other-name-group');
   if (g) g.classList.toggle('hidden', v!=='other');
+  if (v === 'other') populateMediatorDatalist();
+}
+
+function populateMediatorDatalist() {
+  const db = getDB();
+  const names = getAllMediators(db);
+  // Also check db.mediators if exists (user-saved names)
+  const saved = db.mediators || [];
+  const allNames = [...new Set([...names, ...saved])].sort();
+  ['mediator-names-list','mediator-names-list-ed'].forEach(id => {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = allNames.map(n => '<option value="'+n+'">').join('');
+  });
 }
 
 // ==================== LOAN CALCS ====================
@@ -691,6 +704,12 @@ async function saveNewLoan() {
   }
   const viaSk=document.getElementById('nl-via-sk').value;
   if (viaSk==='other'&&!document.getElementById('nl-other-name').value.trim()) { alert('Enter mediator name'); return; }
+  // Save mediator name to known mediators list
+  if (viaSk==='other') {
+    const mName = document.getElementById('nl-other-name').value.trim();
+    if (!db.mediators) db.mediators = [];
+    if (!db.mediators.includes(mName)) db.mediators.push(mName);
+  }
   const trackDate=document.getElementById('nl-track-date').value||startDate;
   const imgs=(_pimg['nl']||[]).filter(x=>x.url).map(x=>({id:x.id,url:x.url,createdAt:x.createdAt}));
   const payment = getPaymentObj('nl', amount);
@@ -1799,5 +1818,5 @@ Object.assign(window,{
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
   renderOtherMediator,renderPaymentInfo,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
-  toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal
+  toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist
 });
