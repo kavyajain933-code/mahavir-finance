@@ -319,6 +319,9 @@ function calcSkOutstanding(db) {
     if (t.type === 'sk_payment') {
       total -= (t.amount||0); // settlements reduce outstanding
     }
+    if (t.type === 'sk_add_outstanding') {
+      total += (t.amount||0); // manually added outstanding
+    }
     if (t.type === 'topup') {
       const pmt = t.payment || {};
       total -= (pmt.sk_outstanding||0);
@@ -1107,6 +1110,8 @@ function renderSkGold() {
     <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via SK</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(skCapGiven)}</div><div class="stat-sub">SK paid borrowers for you</div></div>
     <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">SK Active Loans</div><div class="stat-value">${skL.length}</div><div class="stat-sub">Capital: ${fmtMoney(skCap)}</div></div>`;
   document.getElementById('sk-date').value=new Date().toISOString().split('T')[0];
+  const skAdjDate = document.getElementById('sk-adj-date');
+  if (skAdjDate) skAdjDate.value = new Date().toISOString().split('T')[0];
 
   // Settlement history
   const hist=[...db.sk_payments].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1149,6 +1154,18 @@ function renderSkGold() {
     }).join('') : '<div class="empty-state"><i class="fas fa-clock-rotate-left"></i><p>No SK transactions yet</p></div>';
   }
 }
+async function addSkOutstanding() {
+  const amount = parseFloat(document.getElementById('sk-adj-amt')?.value);
+  const date   = document.getElementById('sk-adj-date')?.value;
+  const notes  = document.getElementById('sk-adj-notes')?.value.trim()||'';
+  if (!amount||!date) { alert('Fill Amount and Date'); return; }
+  const db = getDB();
+  db.transactions.push({id:genId(),type:'sk_add_outstanding',amount,date,note:notes,createdAt:new Date().toISOString()});
+  await saveDB(db);
+  showToast('<i class="fas fa-check-circle"></i> Added to SK outstanding: '+fmtMoney(amount));
+  renderSkGold();
+}
+
 async function saveSkPayment() {
   const amount=parseFloat(document.getElementById('sk-amount').value); const date=document.getElementById('sk-date').value;
   if(!amount||!date){alert('Fill Amount and Date');return;}
@@ -1522,47 +1539,75 @@ function renderOtherMediator() {
     el.innerHTML = '<div class="empty-state"><i class="fas fa-user-tie"></i><p>No other mediator loans yet.<br>Create a loan with "Other Mediator" source to see it here.</p></div>';
     return;
   }
-  el.innerHTML = mediators.map(name => {
+  let html = '';
+  mediators.forEach(name => {
     const key = name.replace(/[^a-zA-Z0-9]/g,'_');
     const loans = db.loans.filter(l=>l.viaSk==='other'&&l.viaOtherName===name&&l.status==='active');
     const capital = loans.reduce((s,l)=>s+getLoanTotal(l),0);
-    // Interest collected from this mediator's customers
-    const medIntTxns = db.transactions.filter(t=>t.type==='interest'&&t.mediatorName===name);
-    const intCollected = medIntTxns.reduce((s,t)=>s+(t.received||0),0);
-    // Settlements received from mediator
+    const intCollected = db.transactions.filter(t=>t.type==='interest'&&t.mediatorName===name).reduce((s,t)=>s+(t.received||0),0);
     const settlements = db.transactions.filter(t=>t.type==='mediator_payment'&&t.mediatorName===name).reduce((s,t)=>s+t.amount,0);
-    // Payments made TO mediator (interest/closure via other_outstanding)
     const viaPmt = db.transactions.filter(t=>t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
-    // Capital given via this mediator
     const capGiven = db.transactions.filter(t=>t.type==='loan'&&t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
-    // Outstanding = mediator owes you
-    const outstanding = intCollected + viaPmt - capGiven - settlements;
-    const history = db.transactions.filter(t=>t.mediatorName===name&&t.type==='mediator_payment').sort((a,b)=>new Date(b.date)-new Date(a.date));
+    // Manual adjustments (add_outstanding type)
+    const manualAdj = db.transactions.filter(t=>t.type==='add_outstanding'&&t.mediatorName===name).reduce((s,t)=>s+(t.amount||0),0);
+    const outstanding = intCollected + viaPmt + manualAdj - capGiven - settlements;
+    const outColor = outstanding>0 ? 'var(--red)' : 'var(--green)';
+    const outLabel = outstanding>0 ? name+' owes you' : 'You owe '+name;
+    const today = new Date().toISOString().split('T')[0];
 
-    return `
-      <div style="margin-bottom:8px;font-size:1.2rem;font-weight:800;color:var(--gold);padding:4px 0">${name}</div>
-      <div class="sk-stats-row" style="margin-bottom:16px">
-        <div class="stat-card"><div class="stat-icon" style="color:#f39c12"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via ${name}</div><div class="stat-value" style="color:#f39c12">${fmtMoney(intCollected)}</div><div class="stat-sub">Collected from customers</div></div>
-        <div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-check-circle"></i></div><div class="stat-label">Received from ${name}</div><div class="stat-value" style="color:var(--green)">${fmtMoney(settlements)}</div><div class="stat-sub">Settlements recorded</div></div>
-        <div class="stat-card" style="border-color:rgba(232,190,90,0.3)"><div class="stat-icon" style="color:${outstanding>0?'var(--red)':'var(--green)'}"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Outstanding</div><div class="stat-value" style="color:${outstanding>0?'var(--red)':'var(--green)'}">${fmtMoney(Math.abs(outstanding))}</div><div class="stat-sub">${outstanding>0?name+' owes you':'You owe '+name}</div></div>
-        <div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via ${name}</div><div class="stat-value" style="color:#4f8ef7">${fmtMoney(capGiven)}</div><div class="stat-sub">${name} paid borrowers for you</div></div>
-        <div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">Active Loans</div><div class="stat-value">${loans.length}</div><div class="stat-sub">Capital: ${fmtMoney(capital)}</div></div>
-      </div>
-      <div class="form-card" style="margin-bottom:24px">
-        <div class="form-section-title"><i class="fas fa-plus"></i> Record Settlement from ${name}</div>
-        <div class="form-grid">
-          <div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="om-amt-${key}" class="input-field" placeholder="0"/></div>
-          <div class="form-group"><label>Date *</label><input type="date" id="om-date-${key}" class="input-field" value="${new Date().toISOString().split('T')[0]}"/></div>
-          <div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-${key}" class="input-field" placeholder="Optional"/></div>
-        </div>
-        <div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment('${name}')"><i class="fas fa-save"></i> Record Settlement</button></div>
-        <div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>
-        <div>${history.length ? history.map(p=>`<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from ${name}</div><div class="activity-meta">${fmtDate(p.date)}${p.note?' · '+p.note:''}</div></div><div class="activity-amount text-green">${fmtMoney(p.amount)}</div></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>'}</div>
-        <div class="form-section-title" style="margin-top:20px"><i class="fas fa-clock-rotate-left"></i> All Transactions</div>
-        <div>${renderMediatorTxnHistory(db, name)}</div>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--border2);margin:8px 0 20px"/>`;
-  }).join('');
+    html += '<div style="margin-bottom:8px;font-size:1.2rem;font-weight:800;color:var(--gold);padding:4px 0">' + name + '</div>';
+    html += '<div class="sk-stats-row" style="margin-bottom:16px">';
+    html += '<div class="stat-card"><div class="stat-icon" style="color:#f39c12"><i class="fas fa-coins"></i></div><div class="stat-label">Interest via '+name+'</div><div class="stat-value" style="color:#f39c12">'+fmtMoney(intCollected)+'</div><div class="stat-sub">From customers</div></div>';
+    html += '<div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-check-circle"></i></div><div class="stat-label">Received from '+name+'</div><div class="stat-value" style="color:var(--green)">'+fmtMoney(settlements)+'</div><div class="stat-sub">Settlements</div></div>';
+    html += '<div class="stat-card" style="border-color:rgba(232,190,90,0.3)"><div class="stat-icon" style="color:'+outColor+'"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Outstanding</div><div class="stat-value" style="color:'+outColor+'">'+fmtMoney(Math.abs(outstanding))+'</div><div class="stat-sub">'+outLabel+'</div></div>';
+    html += '<div class="stat-card"><div class="stat-icon" style="color:#4f8ef7"><i class="fas fa-arrow-down-right-dots"></i></div><div class="stat-label">Capital via '+name+'</div><div class="stat-value" style="color:#4f8ef7">'+fmtMoney(capGiven)+'</div><div class="stat-sub">They paid borrowers for you</div></div>';
+    html += '<div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-label">Active Loans</div><div class="stat-value">'+loans.length+'</div><div class="stat-sub">Capital: '+fmtMoney(capital)+'</div></div>';
+    if (manualAdj>0) html += '<div class="stat-card"><div class="stat-icon" style="color:var(--gold)"><i class="fas fa-plus-circle"></i></div><div class="stat-label">Manual Adjustments</div><div class="stat-value" style="color:var(--gold)">'+fmtMoney(manualAdj)+'</div><div class="stat-sub">Added to outstanding</div></div>';
+    html += '</div>';
+
+    // Add to Outstanding form
+    html += '<div class="form-card" style="margin-bottom:16px">';
+    html += '<div class="form-section-title"><i class="fas fa-plus-circle" style="color:var(--gold)"></i> Add to Outstanding ('+name+' owes you more)</div>';
+    html += '<div class="form-grid">';
+    html += '<div class="form-group"><label>Amount (₹) *</label><input type="number" id="om-adj-amt-'+key+'" class="input-field" placeholder="0"/></div>';
+    html += '<div class="form-group"><label>Date *</label><input type="date" id="om-adj-date-'+key+'" class="input-field" value="'+today+'"/></div>';
+    html += '<div class="form-group full-width"><label>Reason / Notes</label><input type="text" id="om-adj-notes-'+key+'" class="input-field" placeholder="e.g. Capital given, etc."/></div>';
+    html += '</div><div class="form-actions"><button class="btn-gold" onclick="addMediatorOutstanding(''+name+'')"><i class="fas fa-plus-circle"></i> Add to Outstanding</button></div>';
+    html += '</div>';
+
+    // Record Settlement form
+    html += '<div class="form-card" style="margin-bottom:16px">';
+    html += '<div class="form-section-title"><i class="fas fa-handshake"></i> Record Settlement from '+name+'</div>';
+    html += '<div class="form-grid">';
+    html += '<div class="form-group"><label>Amount Received (₹) *</label><input type="number" id="om-amt-'+key+'" class="input-field" placeholder="0"/></div>';
+    html += '<div class="form-group"><label>Date *</label><input type="date" id="om-date-'+key+'" class="input-field" value="'+today+'"/></div>';
+    html += '<div class="form-group full-width"><label>Notes</label><input type="text" id="om-notes-'+key+'" class="input-field" placeholder="Optional"/></div>';
+    html += '</div><div class="form-actions"><button class="btn-primary" onclick="saveMediatorPayment(''+name+'')"><i class="fas fa-save"></i> Record Settlement</button></div>';
+
+    // Settlement history
+    const history = db.transactions.filter(t=>t.mediatorName===name&&t.type==='mediator_payment').sort((a,b)=>new Date(b.date)-new Date(a.date));
+    html += '<div class="form-section-title" style="margin-top:20px"><i class="fas fa-list"></i> Settlement History</div>';
+    html += history.length ? history.map(p=>'<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from '+name+'</div><div class="activity-meta">'+fmtDate(p.date)+(p.note?' · '+p.note:'')+'</div></div><div class="activity-amount text-green">'+fmtMoney(p.amount)+'</div></div>').join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No settlements yet</div>';
+
+    // All transactions
+    html += '<div class="form-section-title" style="margin-top:20px"><i class="fas fa-clock-rotate-left"></i> All Transactions</div>';
+    html += renderMediatorTxnHistory(db, name);
+    html += '</div>';
+    html += '<hr style="border:none;border-top:1px solid var(--border2);margin:8px 0 24px"/>';
+  });
+  el.innerHTML = html;
+}
+async function addMediatorOutstanding(mediatorName) {
+  const key = mediatorName.replace(/[^a-zA-Z0-9]/g,'_');
+  const amount = parseFloat(document.getElementById('om-adj-amt-'+key)?.value);
+  const date   = document.getElementById('om-adj-date-'+key)?.value;
+  const notes  = document.getElementById('om-adj-notes-'+key)?.value.trim()||'';
+  if (!amount||!date) { alert('Fill Amount and Date'); return; }
+  const db = getDB();
+  db.transactions.push({id:genId(),type:'add_outstanding',amount,date,mediatorName,note:notes,createdAt:new Date().toISOString()});
+  await saveDB(db);
+  showToast('<i class="fas fa-check-circle"></i> Added to '+mediatorName+' outstanding: '+fmtMoney(amount));
+  renderOtherMediator();
 }
 
 async function saveMediatorPayment(mediatorName) {
@@ -1663,6 +1708,6 @@ Object.assign(window,{
   handleImgSelect,renderPendingImgs,removePendingImg,viewImgFull,addMoreImgs,deleteLoanImg,
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
-  renderOtherMediator,renderPaymentInfo,saveMediatorPayment,
+  renderOtherMediator,renderPaymentInfo,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
   toggleSplitPayment,updateSplitPayment,updateSimplePayment
 });
