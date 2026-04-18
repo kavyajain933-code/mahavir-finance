@@ -436,12 +436,18 @@
 <div class="modal-overlay hidden" id="close-modal">
   <div class="modal-box">
     <div class="modal-header"><h2><i class="fas fa-lock"></i> Close Loan</h2><button onclick="closeCloseModal()" class="modal-close"><i class="fas fa-times"></i></button></div>
+    <!-- Summary banner — filled dynamically -->
+    <div id="cl-summary-banner" class="hidden" style="margin-bottom:16px"></div>
     <div class="form-grid">
       <div class="form-group"><label>Closure Date *</label><input type="date" id="cl-date" class="input-field"/></div>
-      <div class="form-group"><label>Capital to Receive (₹)</label><input type="number" id="cl-capital" class="input-field" placeholder="0"/></div>
-      <div class="form-group"><label>Final Interest Paid (₹)</label><input type="number" id="cl-final-interest" class="input-field" placeholder="0"/></div>
-      <div class="form-group"><label>Total Repayment (₹)</label><input type="number" id="cl-repayment" class="input-field"/></div>
       <div class="form-group"><label>Gold Returned Date</label><input type="date" id="cl-gold-return" class="input-field"/></div>
+      <div class="form-group"><label>Capital to Receive (₹) <span style="color:var(--text3)">(editable)</span></label><input type="number" id="cl-capital" class="input-field"/></div>
+      <div class="form-group"><label>Interest to Receive (₹) <span style="color:var(--text3)">(editable)</span></label><input type="number" id="cl-final-interest" class="input-field" oninput="updateClTotal()"/></div>
+      <div class="form-group full-width" style="background:var(--gold-faint);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <label style="color:var(--gold);font-weight:700">Total Repayment (₹)</label>
+        <input type="number" id="cl-repayment" class="input-field" style="font-size:1.1rem;font-weight:800;color:var(--gold)" oninput="updateClTotal()"/>
+        <small style="color:var(--text3);font-size:0.78rem;margin-top:4px;display:block">Auto-calculated from Capital + Interest. Edit if different.</small>
+      </div>
       <div class="form-group full-width"><label>Notes</label><input type="text" id="cl-notes" class="input-field"/></div>
       <div class="form-group full-width" style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px">
         <label style="color:var(--gold);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-wallet"></i> How was repayment received?</label>
@@ -461,6 +467,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=45"></script>
+<script type="module" src="app.js?v=51"></script>
 </body>
 </html>

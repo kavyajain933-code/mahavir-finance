@@ -604,6 +604,13 @@ function renderPaymentInputUI(prefix, amount, label='Payment Method') {
     </div>`;
 }
 
+function updateClTotal() {
+  const cap = parseFloat(document.getElementById('cl-capital')?.value)||0;
+  const int = parseFloat(document.getElementById('cl-final-interest')?.value)||0;
+  const repEl = document.getElementById('cl-repayment');
+  if (repEl && document.activeElement !== repEl) repEl.value = cap + int;
+}
+
 function toggleSplitPayment(prefix) {
   const isSplit = document.getElementById(prefix+'-split').checked;
   document.getElementById(prefix+'-pmt-simple').classList.toggle('hidden', isSplit);
@@ -1037,10 +1044,43 @@ function closeLoanModal(){document.getElementById('loan-modal').classList.add('h
 // ==================== CLOSE LOAN ====================
 let _closingId=null;
 function openCloseModal(id) {
-  _closingId=id; const today=new Date().toISOString().split('T')[0];
-  document.getElementById('cl-date').value=today; document.getElementById('cl-gold-return').value=today;
-  document.getElementById('cl-final-interest').value=''; document.getElementById('cl-notes').value='';
-  document.getElementById('cl-repayment').value=getLoanTotal(getDB().loans.find(l=>l.id===id));
+  _closingId=id;
+  const db=getDB(); const loan=db.loans.find(l=>l.id===id);
+  const cust=db.customers.find(c=>c.id===loan.customerId);
+  const today=new Date().toISOString().split('T')[0];
+  const capital=getLoanTotal(loan);
+  const lastInt=getLastIntDate(id);
+  const estInt=calcSegInt(id,lastInt,today).totalInterest;
+  const pending=getLoanPending(loan);
+  const totalInt=estInt+pending;
+  const totalReceivable=capital+totalInt;
+
+  // Pre-fill dates
+  document.getElementById('cl-date').value=today;
+  document.getElementById('cl-gold-return').value=today;
+  document.getElementById('cl-notes').value='';
+
+  // Show summary banner
+  const banner=document.getElementById('cl-summary-banner');
+  if(banner) {
+    banner.innerHTML=`
+      <div class="close-loan-summary">
+        <div class="cls-title">💰 Amount to Receive from <strong>${cust.name}</strong></div>
+        <div class="cls-grid">
+          <div class="cls-item"><span>Outstanding Capital</span><strong style="color:var(--gold)">${fmtMoney(capital)}</strong></div>
+          <div class="cls-item"><span>Interest Due</span><strong style="color:#e6a817">${fmtMoney(estInt)}</strong></div>
+          ${pending>0?'<div class="cls-item"><span>Carried Forward</span><strong style="color:var(--gold)">'+fmtMoney(pending)+'</strong></div>':''}
+          <div class="cls-item highlight"><span>Total Receivable</span><strong style="color:var(--gold);font-size:1.2rem">${fmtMoney(totalReceivable)}</strong></div>
+        </div>
+      </div>`;
+    banner.classList.remove('hidden');
+  }
+
+  // Pre-fill amounts
+  document.getElementById('cl-capital').value=capital;
+  document.getElementById('cl-final-interest').value=totalInt||0;
+  document.getElementById('cl-repayment').value=totalReceivable;
+
   document.getElementById('close-modal').classList.remove('hidden');
 }
 function closeCloseModal(){document.getElementById('close-modal').classList.add('hidden');_closingId=null;}
@@ -1709,5 +1749,5 @@ Object.assign(window,{
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
   renderOtherMediator,renderPaymentInfo,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
-  toggleSplitPayment,updateSplitPayment,updateSimplePayment
+  toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal
 });

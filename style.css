@@ -667,3 +667,12 @@ select.input-field{cursor:pointer;}
 .split-toggle-label input{accent-color:var(--gold);width:16px;height:16px;}
 .split-payment-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
 .payment-split-total{font-size:0.9rem;font-weight:700;color:var(--gold);margin-top:8px;padding:8px 12px;background:var(--gold-faint);border-radius:7px;}
+
+/* ===== CLOSE LOAN SUMMARY ===== */
+.close-loan-summary { background:linear-gradient(135deg,rgba(232,190,90,0.1),rgba(232,190,90,0.04)); border:1px solid rgba(232,190,90,0.25); border-radius:12px; padding:16px 18px; }
+.cls-title { font-size:0.85rem; color:var(--text2); margin-bottom:12px; }
+.cls-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+.cls-item { background:var(--bg3); border-radius:8px; padding:10px 12px; border:1px solid var(--border2); }
+.cls-item span { font-size:0.72rem; color:var(--text3); display:block; margin-bottom:3px; text-transform:uppercase; font-weight:600; letter-spacing:.04em; }
+.cls-item strong { font-size:1rem; font-weight:700; }
+.cls-item.highlight { background:var(--gold-faint); border-color:rgba(232,190,90,0.3); }
