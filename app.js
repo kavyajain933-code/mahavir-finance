@@ -267,6 +267,8 @@ function navigateTo(page, addHistory=true) {
     history: renderHistory, customers: renderCustomers, 'sk-gold': renderSkGold,
     'other-mediator': renderOtherMediator, 'payment-info': renderPaymentInfo, cash: renderCash
   };
+  // When navigating to new-loan, populate mediator datalist
+  if (page === 'new-loan') { setTimeout(populateMediatorDatalist, 100); }
   if (renders[page]) renders[page]();
 }
 
@@ -400,15 +402,26 @@ function showToast(msg) {
   t.innerHTML=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',3000);
 }
 function toggleOtherSourceField(prefix) {
-  const v = document.getElementById(prefix+'-via-sk').value;
+  // For edit modal the select id is 'ed-sk' not 'ed-via-sk'
+  const selId = prefix === 'ed' ? 'ed-sk' : prefix+'-via-sk';
+  const el = document.getElementById(selId);
+  if (!el) return;
+  const v = el.value;
   const g = document.getElementById(prefix+'-other-name-group');
   if (g) {
-    g.classList.toggle('hidden', v!=='other');
-    // If showing, populate datalist and focus input
-    if (v === 'other') {
+    const isOther = (v === 'other');
+    g.classList.toggle('hidden', !isOther);
+    if (isOther) {
       populateMediatorDatalist();
+      // Populate inline datalist for edit modal
+      const dl = document.getElementById('ed-mediator-list');
+      if (dl) {
+        const db = getDB();
+        const names = [...new Set([...(db.mediators||[]),...getAllMediators(db)])].sort();
+        dl.innerHTML = names.map(n=>'<option value="'+n+'">').join('');
+      }
       const inp = document.getElementById(prefix+'-other-name');
-      if (inp) setTimeout(()=>inp.focus(), 50);
+      if (inp) setTimeout(()=>inp.focus(), 80);
     }
   }
 }
@@ -765,7 +778,12 @@ function editLoan(id) {
     <div class="form-group"><label>Rate (%/mo)</label><input type="number" id="ed-rate" step="0.1" class="input-field" value="${l.rate}"></div>
     <div class="form-group"><label>Start Date</label><input type="date" id="ed-date" class="input-field" value="${l.startDate}"></div>
     <div class="form-group"><label>Source</label><select id="ed-sk" class="input-field" onchange="toggleOtherSourceField('ed')"><option value="sk" ${isSkLoan(l)?'selected':''}>SK Gold</option><option value="direct" ${isDirectLoan(l)?'selected':''}>Direct Customer</option><option value="other" ${isOtherLoan(l)?'selected':''}>Other Mediator</option></select></div>
-    <div class="form-group ${isOtherLoan(l)?'':'hidden'}" id="ed-other-name-group"><label>Mediator Name</label><input type="text" id="ed-other-name" class="input-field" value="${l.viaOtherName||''}"></div>
+    <div class="form-group ${isOtherLoan(l)?'':'hidden'}" id="ed-other-name-group">
+      <label>Mediator Name *</label>
+      <input type="text" id="ed-other-name" class="input-field" value="${l.viaOtherName||''}" list="ed-mediator-list" autocomplete="off" placeholder="Type or select mediator name"/>
+      <datalist id="ed-mediator-list">${(()=>{const db=getDB();const names=[...new Set([...(db.mediators||[]),...getAllMediators(db)])].sort();return names.map(n=>'<option value="'+n+'">').join('');})()}</datalist>
+      <small class="field-hint">Select existing mediator or type new name</small>
+    </div>
     <div class="form-group"><label>Gold Weight (g)</label><input type="number" id="ed-wt" step="0.01" class="input-field" value="${l.goldWeight||''}"></div>
     <div class="form-group full-width"><label>Gold Description</label><input type="text" id="ed-desc" class="input-field" value="${l.goldDesc||''}"></div>
     <div class="form-group full-width" style="background:var(--gold-faint);border-radius:8px;padding:12px;border:1px solid var(--border)"><label style="color:var(--gold)">Interest Tracking From</label><input type="date" id="ed-track" class="input-field" value="${l.trackingStartDate||l.startDate}"><small style="color:var(--text3);margin-top:4px;display:block">Interest calculated from this date.</small></div>`;
