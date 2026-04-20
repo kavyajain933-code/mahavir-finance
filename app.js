@@ -402,8 +402,15 @@ function showToast(msg) {
 function toggleOtherSourceField(prefix) {
   const v = document.getElementById(prefix+'-via-sk').value;
   const g = document.getElementById(prefix+'-other-name-group');
-  if (g) g.classList.toggle('hidden', v!=='other');
-  if (v === 'other') populateMediatorDatalist();
+  if (g) {
+    g.classList.toggle('hidden', v!=='other');
+    // If showing, populate datalist and focus input
+    if (v === 'other') {
+      populateMediatorDatalist();
+      const inp = document.getElementById(prefix+'-other-name');
+      if (inp) setTimeout(()=>inp.focus(), 50);
+    }
+  }
 }
 
 function populateMediatorDatalist() {
@@ -772,6 +779,8 @@ function editLoan(id) {
     await saveDB(db); closeEditModal(); openLoanModal(id); renderLiveLoans();
   };
   document.getElementById('edit-modal').classList.remove('hidden');
+  // Populate mediator datalist for edit modal
+  setTimeout(()=>{ populateMediatorDatalist(); },50);
 }
 function deleteLoan(id) {
   if (!confirm('DELETE this loan and ALL its history?')) return;
@@ -1693,13 +1702,31 @@ function renderMediatorTxnHistory(db, name) {
 // ==================== OTHER MEDIATOR PAGE ====================
 function renderOtherMediator() {
   const db = getDB();
-  const mediators = getAllMediators(db);
+  // Get mediators from loans AND from manually saved list
+  const fromLoans = getAllMediators(db);
+  const fromSaved = db.mediators || [];
+  const mediators = [...new Set([...fromLoans, ...fromSaved])].sort();
   const el = document.getElementById('om-content');
   if (!mediators.length) {
     el.innerHTML = '<div class="empty-state"><i class="fas fa-user-tie"></i><p>No other mediator loans yet.<br>Create a loan with "Other Mediator" source to see it here.</p></div>';
     return;
   }
   let html = '';
+
+  // Add mediator management section at top
+  html += '<div class="form-card" style="margin-bottom:16px">';
+  html += '<div class="form-section-title"><i class="fas fa-plus"></i> Add New Mediator</div>';
+  html += '<div style="display:flex;gap:10px;align-items:flex-end">';
+  html += '<div class="form-group" style="flex:1;margin:0"><label>Mediator Name</label><input type="text" id="om-new-name" class="input-field" placeholder="e.g. Ramesh Broker" list="mediator-names-list" autocomplete="off"/><datalist id="mediator-names-list"></datalist></div>';
+  html += '<button class="btn-primary" onclick="addNewMediator()" style="flex-shrink:0"><i class="fas fa-plus"></i> Add</button>';
+  html += '</div></div>';
+
+  if (!mediators.length) {
+    html += '<div class="empty-state"><i class="fas fa-user-tie"></i><p>No mediators yet.<br>Add a mediator above or create a loan with "Other Mediator" source.</p></div>';
+    el.innerHTML = html;
+    return;
+  }
+
   mediators.forEach(name => {
     const key = name.replace(/[^a-zA-Z0-9]/g,'_');
     const loans = db.loans.filter(l=>l.viaSk==='other'&&l.viaOtherName===name&&l.status==='active');
@@ -1757,6 +1784,20 @@ function renderOtherMediator() {
   });
   el.innerHTML = html;
 }
+async function addNewMediator() {
+  const name = document.getElementById('om-new-name')?.value.trim();
+  if (!name) { alert('Enter mediator name'); return; }
+  const db = getDB();
+  if (!db.mediators) db.mediators = [];
+  if (db.mediators.includes(name)) { showToast('Mediator already exists!'); return; }
+  db.mediators.push(name);
+  await saveDB(db);
+  showToast('<i class="fas fa-check-circle"></i> Mediator "'+name+'" added!');
+  document.getElementById('om-new-name').value = '';
+  renderOtherMediator();
+  populateMediatorDatalist();
+}
+
 async function addMediatorOutstanding(mediatorName) {
   const key = mediatorName.replace(/[^a-zA-Z0-9]/g,'_');
   const amount = parseFloat(document.getElementById('om-adj-amt-'+key)?.value);
@@ -1915,6 +1956,6 @@ Object.assign(window,{
   handleImgSelect,renderPendingImgs,removePendingImg,viewImgFull,addMoreImgs,deleteLoanImg,
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
-  renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,deleteTxnFromModal,addMediatorOutstanding,addSkOutstanding,
+  renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,deleteTxnFromModal,addNewMediator,addMediatorOutstanding,addSkOutstanding,
   toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist
 });
