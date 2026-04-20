@@ -265,7 +265,7 @@ function navigateTo(page, addHistory=true) {
     dashboard: renderDashboard, index: renderIndex, 'live-loans': renderLiveLoans,
     'closed-loans': renderClosedLoans, favourites: renderFavourites,
     history: renderHistory, customers: renderCustomers, 'sk-gold': renderSkGold,
-    'other-mediator': renderOtherMediator, 'payment-info': renderPaymentInfo
+    'other-mediator': renderOtherMediator, 'payment-info': renderPaymentInfo, cash: renderCash
   };
   if (renders[page]) renders[page]();
 }
@@ -688,7 +688,7 @@ async function saveNewLoan() {
   const rate=parseFloat(document.getElementById('nl-rate').value);
   const startDate=document.getElementById('nl-start-date').value;
   const acctIn=document.getElementById('nl-account').value.trim();
-  if (!name||!amount||!rate||!startDate) { alert('Fill: Name, Amount, Rate, Start Date'); return; }
+  if (!name||!amount||isNaN(rate)||!startDate) { alert('Fill: Name, Amount, Rate, Start Date'); return; }
   if (mobile && !/^\d{10}$/.test(mobile)) { alert('Mobile must be 10 digits or blank'); return; }
   const db=getDB(); let cust;
   if (_nlCustId) {
@@ -1051,7 +1051,8 @@ function openLoanModal(loanId) {
     <div class="timeline">${txns.map(t=>{
       let amt; if(t.type==='interest'){amt=fmtMoney(t.received);if(t.discount>0)amt+=` <span class="hist-tag disc">Disc:${fmtMoney(t.discount)}</span>`;if(t.shortfall>0)amt+=` <span class="hist-tag paylater">PayLater:${fmtMoney(t.shortfall)}</span>`;if(t.fromDate&&t.toDate)amt+=`<br><span style="color:var(--text3);font-size:0.78rem">${fmtDate(t.fromDate)}→${fmtDate(t.toDate)}</span>`;}else{amt=fmtMoney(t.amount);}
       const pmtStr = t.payment ? `<div style="font-size:0.75rem;color:#8888aa;margin-top:2px"><i class="fas fa-wallet"></i> ${fmtPayment(t.payment)}</div>` : '';
-      return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${pmtStr}</div></div>`;
+      const editBtnModal = t.type!=='loan' ? `<button class="btn-ghost btn-sm" style="flex-shrink:0;align-self:center;margin-left:4px" onclick="editTxn('${t.id}')"><i class="fas fa-pen"></i></button>` : '';
+      return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${pmtStr}</div>${editBtnModal}</div>`;
     }).join('')||'<p style="color:var(--text3);padding:8px 0">No records</p>'}</div>
     <div class="modal-actions">
       ${loan.status==='active'?`<button class="btn-primary" onclick="closeLoanModal();quickInt('${loanId}')"><i class="fas fa-coins"></i> Interest</button><button class="btn-ghost" onclick="closeLoanModal();quickPart('${loanId}')"><i class="fas fa-arrow-down"></i> Repay</button><button class="btn-ghost" onclick="closeLoanModal();preselectTopup('${loanId}')"><i class="fas fa-arrow-up"></i> Top-Up</button><button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button><button class="btn-danger" onclick="closeLoanModal();openCloseModal('${loanId}')"><i class="fas fa-lock"></i> Close</button>`:`<button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button>`}
@@ -1557,6 +1558,62 @@ function shareWhatsApp(loanId) {
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
+// ==================== CASH TAB ====================
+function renderCash() {
+  const db = getDB();
+
+  // Cash inflows — money received in cash
+  const cashInTxns = db.transactions.filter(t => t.payment && (t.payment.cash||0) > 0 &&
+    (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment'));
+  const cashIn = cashInTxns.reduce((s,t) => s+(t.payment.cash||0), 0);
+
+  // Cash outflows — money given in cash
+  const cashOutTxns = db.transactions.filter(t => t.payment && (t.payment.cash||0) > 0 &&
+    (t.type==='loan'||t.type==='topup'));
+  const cashOut = cashOutTxns.reduce((s,t) => s+(t.payment.cash||0), 0);
+
+  const net = cashIn - cashOut;
+  const netColor = net >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // All cash transactions combined and sorted
+  const allCashTxns = [...cashInTxns, ...cashOutTxns]
+    .sort((a,b) => new Date(b.createdAt||b.date) - new Date(a.createdAt||a.date));
+
+  const imap = {loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',sk_payment:'fas fa-handshake',mediator_payment:'fas fa-handshake'};
+  const lmap = {loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',sk_payment:'SK Settlement',mediator_payment:'Mediator Settlement'};
+
+  const el = document.getElementById('cash-content');
+  if (!el) return;
+
+  // Stats
+  el.innerHTML = '<div class="sk-stats-row" style="margin-bottom:20px">'
+    + '<div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-arrow-down-to-bracket"></i></div><div class="stat-label">Cash Inflow</div><div class="stat-value" style="color:var(--green)">'+fmtMoney(cashIn)+'</div><div class="stat-sub">Interest, closures, repayments</div></div>'
+    + '<div class="stat-card"><div class="stat-icon" style="color:var(--red)"><i class="fas fa-arrow-up-from-bracket"></i></div><div class="stat-label">Cash Outflow</div><div class="stat-value" style="color:var(--red)">'+fmtMoney(cashOut)+'</div><div class="stat-sub">New loans, top-ups given</div></div>'
+    + '<div class="stat-card" style="border-color:rgba(34,216,122,0.3)"><div class="stat-icon" style="color:'+netColor+'"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Net Cash Flow</div><div class="stat-value" style="color:'+netColor+'">'+fmtMoney(Math.abs(net))+'</div><div class="stat-sub">'+(net>=0?'Net positive':'Net negative')+'</div></div>'
+    + '<div class="stat-card"><div class="stat-icon"><i class="fas fa-receipt"></i></div><div class="stat-label">Transactions</div><div class="stat-value">'+allCashTxns.length+'</div><div class="stat-sub">Cash entries</div></div>'
+    + '</div>'
+    + '<div class="form-card"><div class="form-section-title"><i class="fas fa-clock-rotate-left"></i> Cash Transaction History</div>'
+    + (allCashTxns.length ? allCashTxns.map(t => {
+        const loan = db.loans.find(l=>l.id===t.loanId);
+        const cust = loan ? db.customers.find(c=>c.id===loan.customerId) : null;
+        const name = (t.type==='sk_payment'||t.type==='mediator_payment') ? (t.mediatorName||'SK Gold') : (cust?cust.name:'—');
+        const isIn = (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment');
+        const cashAmt = t.payment?.cash || 0;
+        const color = isIn ? 'var(--green)' : 'var(--red)';
+        const prefix = isIn ? '+' : '−';
+        return '<div class="activity-item">'
+          + '<div class="activity-icon '+(t.type==='partial_repayment'?'partial_repayment':t.type)+'"><i class="'+(imap[t.type]||'fas fa-circle')+'"></i></div>'
+          + '<div class="activity-text">'
+          + '<div class="activity-name">'+name+' <span style="font-size:0.75rem;color:'+color+';font-weight:600">'+( lmap[t.type]||t.type)+'</span></div>'
+          + '<div class="activity-meta">'+fmtDate(t.date)+(cust?' · '+cust.account:'')+'</div>'
+          + '</div>'
+          + '<div class="activity-amount" style="color:'+color+'">'+prefix+' '+fmtMoney(cashAmt)+'</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="empty-state"><i class="fas fa-money-bill-wave"></i><p>No cash transactions yet.<br>Add payment method when creating loans.</p></div>')
+    + '</div>';
+}
+
 // ==================== MEDIATOR TRANSACTION HISTORY HELPER ====================
 function renderMediatorTxnHistory(db, name) {
   const imap3 = {loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',mediator_payment:'fas fa-handshake'};
@@ -1817,6 +1874,6 @@ Object.assign(window,{
   handleImgSelect,renderPendingImgs,removePendingImg,viewImgFull,addMoreImgs,deleteLoanImg,
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
-  renderOtherMediator,renderPaymentInfo,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
+  renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
   toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist
 });
