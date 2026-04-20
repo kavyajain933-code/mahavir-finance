@@ -336,7 +336,10 @@ function calcSkOutstanding(db) {
 function calcMediatorOutstanding(db, mediatorName) {
   let total = 0;
   db.transactions.forEach(t => {
-    if (t.mediatorName !== mediatorName) return;
+    // Check both txn's mediatorName and the loan's viaOtherName
+    const loan = db.loans.find(l=>l.id===t.loanId);
+    const txnMed = t.mediatorName || (loan&&loan.viaSk==='other'?loan.viaOtherName:'');
+    if (txnMed !== mediatorName) return;
     if (t.type === 'interest' || t.type === 'closure') {
       const pmt = t.payment || {};
       total += (pmt.other_outstanding||0);
@@ -345,9 +348,8 @@ function calcMediatorOutstanding(db, mediatorName) {
       const pmt = t.payment || {};
       total -= (pmt.other_outstanding||0);
     }
-    if (t.type === 'mediator_payment') {
-      total -= (t.amount||0);
-    }
+    if (t.type === 'mediator_payment') total -= (t.amount||0);
+    if (t.type === 'add_outstanding') total += (t.amount||0);
   });
   return total;
 }
@@ -791,6 +793,17 @@ function editLoan(id) {
     l.amount=parseFloat(document.getElementById('ed-amt').value); l.rate=parseFloat(document.getElementById('ed-rate').value);
     l.startDate=document.getElementById('ed-date').value; l.viaSk=document.getElementById('ed-sk').value;
     l.viaOtherName=l.viaSk==='other'?document.getElementById('ed-other-name').value.trim():'';
+    // Update mediatorName on all existing transactions for this loan
+    if (l.viaSk==='other' && l.viaOtherName) {
+      db.transactions.filter(t=>t.loanId===l.id).forEach(t=>{ t.mediatorName=l.viaOtherName; });
+    } else if (l.viaSk!=='other') {
+      db.transactions.filter(t=>t.loanId===l.id).forEach(t=>{ t.mediatorName=''; });
+    }
+    // Save mediator name to known list
+    if (l.viaSk==='other' && l.viaOtherName && !db.mediators?.includes(l.viaOtherName)) {
+      if (!db.mediators) db.mediators=[];
+      db.mediators.push(l.viaOtherName);
+    }
     l.goldWeight=document.getElementById('ed-wt').value; l.goldDesc=document.getElementById('ed-desc').value.trim();
     l.trackingStartDate=document.getElementById('ed-track').value||l.startDate;
     const t=db.transactions.find(t=>t.loanId===l.id&&t.type==='loan'); if(t){t.amount=l.amount;t.date=l.startDate;}
@@ -1688,10 +1701,13 @@ function renderMediatorTxnHistory(db, name) {
   const lmap3 = {loan:'New Loan',topup:'Top-Up',interest:'Interest Received',closure:'Loan Closed',partial_repayment:'Partial Repayment',mediator_payment:'Settlement'};
   const medTxns = db.transactions.filter(t => {
     if (t.type === 'mediator_payment' && t.mediatorName === name) return true;
+    if (t.type === 'add_outstanding' && t.mediatorName === name) return true;
     const loan2 = db.loans.find(l => l.id === t.loanId);
     if (!loan2) return false;
+    // Check loan's mediator name (handles edited loans)
     if (loan2.viaSk === 'other' && loan2.viaOtherName === name) return true;
-    if (t.payment && (t.payment.other_outstanding||0) > 0 && t.mediatorName === name) return true;
+    // Also check txn's own mediatorName
+    if (t.mediatorName === name) return true;
     return false;
   }).sort((a,b) => new Date(b.createdAt||b.date) - new Date(a.createdAt||a.date));
   if (!medTxns.length) return '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No transactions yet</div>';
@@ -1749,13 +1765,23 @@ function renderOtherMediator() {
     const key = name.replace(/[^a-zA-Z0-9]/g,'_');
     const loans = db.loans.filter(l=>l.viaSk==='other'&&l.viaOtherName===name&&l.status==='active');
     const capital = loans.reduce((s,l)=>s+getLoanTotal(l),0);
-    const intCollected = db.transactions.filter(t=>t.type==='interest'&&t.mediatorName===name).reduce((s,t)=>s+(t.received||0),0);
-    const settlements = db.transactions.filter(t=>t.type==='mediator_payment'&&t.mediatorName===name).reduce((s,t)=>s+t.amount,0);
-    const viaPmt = db.transactions.filter(t=>t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
-    const capGiven = db.transactions.filter(t=>t.type==='loan'&&t.payment&&(t.payment.other_outstanding||0)>0&&t.mediatorName===name).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
-    // Manual adjustments (add_outstanding type)
-    const manualAdj = db.transactions.filter(t=>t.type==='add_outstanding'&&t.mediatorName===name).reduce((s,t)=>s+(t.amount||0),0);
-    const outstanding = intCollected + viaPmt + manualAdj - capGiven - settlements;
+    // Helper: get mediator name for a transaction (from txn directly OR from its loan)
+    const getTxnMediator = t => {
+      if (t.mediatorName) return t.mediatorName;
+      const tLoan = db.loans.find(l=>l.id===t.loanId);
+      return (tLoan && tLoan.viaSk==='other') ? (tLoan.viaOtherName||'') : '';
+    };
+    // All txns belonging to this mediator (via txn.mediatorName OR loan.viaOtherName)
+    const isMed = t => getTxnMediator(t) === name;
+
+    const intCollected = db.transactions.filter(t=>t.type==='interest'&&isMed(t)).reduce((s,t)=>s+(t.received||0),0);
+    const settlements  = db.transactions.filter(t=>t.type==='mediator_payment'&&t.mediatorName===name).reduce((s,t)=>s+t.amount,0);
+    const viaPmt       = db.transactions.filter(t=>t.payment&&(t.payment.other_outstanding||0)>0&&isMed(t)).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
+    const capGiven     = db.transactions.filter(t=>t.type==='loan'&&t.payment&&(t.payment.other_outstanding||0)>0&&isMed(t)).reduce((s,t)=>s+(t.payment.other_outstanding||0),0);
+    const manualAdj    = db.transactions.filter(t=>t.type==='add_outstanding'&&t.mediatorName===name).reduce((s,t)=>s+(t.amount||0),0);
+    // Capital out = total principal of loans via this mediator
+    const loanCapital  = loans.reduce((s,l)=>s+l.amount,0);
+    const outstanding  = intCollected + viaPmt + manualAdj - capGiven - settlements;
     const outColor = outstanding>0 ? 'var(--red)' : 'var(--green)';
     const outLabel = outstanding>0 ? name+' owes you' : 'You owe '+name;
     const today = new Date().toISOString().split('T')[0];
