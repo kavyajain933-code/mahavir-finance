@@ -1051,8 +1051,23 @@ function openLoanModal(loanId) {
     <div class="timeline">${txns.map(t=>{
       let amt; if(t.type==='interest'){amt=fmtMoney(t.received);if(t.discount>0)amt+=` <span class="hist-tag disc">Disc:${fmtMoney(t.discount)}</span>`;if(t.shortfall>0)amt+=` <span class="hist-tag paylater">PayLater:${fmtMoney(t.shortfall)}</span>`;if(t.fromDate&&t.toDate)amt+=`<br><span style="color:var(--text3);font-size:0.78rem">${fmtDate(t.fromDate)}→${fmtDate(t.toDate)}</span>`;}else{amt=fmtMoney(t.amount);}
       const pmtStr = t.payment ? `<div style="font-size:0.75rem;color:#8888aa;margin-top:2px"><i class="fas fa-wallet"></i> ${fmtPayment(t.payment)}</div>` : '';
-      const editBtnModal = t.type!=='loan' ? `<button class="btn-ghost btn-sm" style="flex-shrink:0;align-self:center;margin-left:4px" onclick="editTxn('${t.id}')"><i class="fas fa-pen"></i></button>` : '';
-      return `<div class="timeline-item"><div class="activity-icon ${t.type==='partial_repayment'?'partial_repayment':t.type}"><i class="${imap[t.type]||'fas fa-circle'}"></i></div><div class="tl-body"><div class="tl-title">${lmap[t.type]||t.type}</div><div class="tl-meta">${fmtDate(t.date)}${t.note?' · '+t.note:''}</div><div class="tl-amount">${amt}</div>${pmtStr}</div>${editBtnModal}</div>`;
+      const modalBtns = t.type!=='loan'
+        ? '<div style="display:flex;gap:4px;flex-shrink:0;align-self:center;margin-left:4px">'
+          + '<button class="btn-ghost btn-sm" onclick="editTxn(\''+t.id+'\')"><i class="fas fa-pen"></i></button>'
+          + '<button class="btn-danger btn-sm" onclick="deleteTxnFromModal(\''+t.id+'\',\''+loanId+'\')"><i class="fas fa-trash"></i></button>'
+          + '</div>'
+        : '';
+      const iconCls2 = t.type==='partial_repayment'?'partial_repayment':t.type;
+      return '<div class="timeline-item">'
+        + '<div class="activity-icon '+iconCls2+'"><i class="'+(imap[t.type]||'fas fa-circle')+'"></i></div>'
+        + '<div class="tl-body">'
+        + '<div class="tl-title">'+(lmap[t.type]||t.type)+'</div>'
+        + '<div class="tl-meta">'+fmtDate(t.date)+(t.note?' · '+t.note:'')+'</div>'
+        + '<div class="tl-amount">'+amt+'</div>'
+        + pmtStr
+        + '</div>'
+        + modalBtns
+        + '</div>';
     }).join('')||'<p style="color:var(--text3);padding:8px 0">No records</p>'}</div>
     <div class="modal-actions">
       ${loan.status==='active'?`<button class="btn-primary" onclick="closeLoanModal();quickInt('${loanId}')"><i class="fas fa-coins"></i> Interest</button><button class="btn-ghost" onclick="closeLoanModal();quickPart('${loanId}')"><i class="fas fa-arrow-down"></i> Repay</button><button class="btn-ghost" onclick="closeLoanModal();preselectTopup('${loanId}')"><i class="fas fa-arrow-up"></i> Top-Up</button><button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button><button class="btn-danger" onclick="closeLoanModal();openCloseModal('${loanId}')"><i class="fas fa-lock"></i> Close</button>`:`<button class="btn-ghost" onclick="editLoan('${loanId}')"><i class="fas fa-edit"></i> Edit</button>`}
@@ -1106,6 +1121,32 @@ function openCloseModal(id) {
 
   document.getElementById('close-modal').classList.remove('hidden');
 }
+function deleteTxnFromModal(txnId, loanId) {
+  const db = getDB();
+  const txn = db.transactions.find(t=>t.id===txnId);
+  if (!txn) return;
+  const typeLabels = {interest:'interest payment',topup:'top-up',closure:'loan closure',partial_repayment:'partial repayment',sk_payment:'SK payment'};
+  const label = typeLabels[txn.type] || txn.type;
+  if (!confirm('Delete this '+label+'? This will reverse the action.')) return;
+  // Reopen loan if closure deleted
+  if (txn.type==='closure' && txn.loanId) {
+    const l = db.loans.find(x=>x.id===txn.loanId);
+    if (l) { l.status='active'; delete l.closureDate; }
+  }
+  // Remove SK payment record if applicable
+  if (txn.type==='sk_payment') db.sk_payments = db.sk_payments.filter(p=>p.txnId!==txn.id);
+  db.transactions = db.transactions.filter(t=>t.id!==txnId);
+  saveDB(db).then(()=>{
+    showToast('<i class="fas fa-check-circle"></i> Deleted & reversed!');
+    // Refresh modal if loan still active
+    const loan = db.loans.find(l=>l.id===loanId);
+    if (loan) openLoanModal(loanId);
+    else closeLoanModal();
+    renderDashboard();
+    if(document.getElementById('page-live-loans').classList.contains('active')) renderLiveLoans();
+  });
+}
+
 function closeCloseModal(){document.getElementById('close-modal').classList.add('hidden');_closingId=null;}
 async function confirmCloseLoan(){
   if(!_closingId) return; const db=getDB(); const l=db.loans.find(x=>x.id===_closingId);
@@ -1874,6 +1915,6 @@ Object.assign(window,{
   handleImgSelect,renderPendingImgs,removePendingImg,viewImgFull,addMoreImgs,deleteLoanImg,
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
-  renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,addMediatorOutstanding,addSkOutstanding,
+  renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,deleteTxnFromModal,addMediatorOutstanding,addSkOutstanding,
   toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist
 });
