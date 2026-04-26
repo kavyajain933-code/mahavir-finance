@@ -82,14 +82,18 @@ async function saveDB(data) {
   _cache = data;
   showSync(true);
   try {
-    await setDoc(userDoc(), data);
+    // Deep-clone via JSON to strip undefined values which Firestore rejects silently
+    const clean = JSON.parse(JSON.stringify(data));
+    await setDoc(userDoc(), clean);
+    return true;
   } catch(e) {
     console.error('saveDB error:', e.code, e.message);
     if (e.message && e.message.includes('maximum allowed size')) {
       showToast('⚠️ Document too large! Photos should now go to Storage — try refreshing.');
     } else {
-      showToast('⚠️ Save failed: ' + e.message);
+      showToast('⚠️ Save failed: ' + (e.message || e.code));
     }
+    return false;
   } finally {
     showSync(false);
   }
