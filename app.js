@@ -1108,7 +1108,7 @@ function openLoanModal(loanId) {
       const pmtStr = t.payment ? `<div style="font-size:0.75rem;color:#8888aa;margin-top:2px"><i class="fas fa-wallet"></i> ${fmtPayment(t.payment)}</div>` : '';
       const modalBtns = t.type!=='loan'
         ? '<div style="display:flex;gap:4px;flex-shrink:0;align-self:center;margin-left:4px">'
-          + '<button class="btn-ghost btn-sm" onclick="editTxn(\''+t.id+'\')"><i class="fas fa-pen"></i></button>'
+          + '<button class="btn-ghost btn-sm" onclick="window.editTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-pen"></i></button>'
           + '<button class="btn-danger btn-sm" onclick="deleteTxnFromModal(\''+t.id+'\',\''+loanId+'\')"><i class="fas fa-trash"></i></button>'
           + '</div>'
         : '';
@@ -1274,7 +1274,7 @@ function renderSkGold() {
 
   // Settlement history
   const hist=[...db.sk_payments].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  document.getElementById('sk-history').innerHTML=hist.length?hist.map(p=>'<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from SK</div><div class="activity-meta">'+fmtDate(p.date)+(p.note?' · '+p.note:'')+'</div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-amount text-green">'+fmtMoney(p.amount)+'</div><button class="btn-ghost btn-sm" onclick="editTxn(\''+p.txnId+'\')"><i class="fas fa-pen"></i></button></div></div>').join(''):'<div class="empty-state"><i class="fas fa-handshake"></i><p>No settlements yet</p></div>';
+  document.getElementById('sk-history').innerHTML=hist.length?hist.map(p=>'<div class="activity-item"><div class="activity-icon sk_payment"><i class="fas fa-handshake"></i></div><div class="activity-text"><div class="activity-name">Settlement from SK</div><div class="activity-meta">'+fmtDate(p.date)+(p.note?' · '+p.note:'')+'</div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-amount text-green">'+fmtMoney(p.amount)+'</div><button class="btn-ghost btn-sm" onclick="window.editTxn(this.dataset.id)" data-id="'+p.txnId+'"><i class="fas fa-pen"></i></button></div></div>').join(''):'<div class="empty-state"><i class="fas fa-handshake"></i><p>No settlements yet</p></div>';
 
   // Full transaction history for SK
   const imap2={loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',sk_payment:'fas fa-handshake'};
@@ -1741,8 +1741,10 @@ function renderCash() {
         + '<div class="activity-meta">'+fmtDate(t.date)+(cust?' · '+cust.account:'')+(t.note?' · '+t.note:'')+'</div>'
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div class="activity-amount" style="color:'+color+'">'+prefix+' '+fmtMoney(cashAmt)+'</div>'
-        + '<button class="btn-ghost btn-sm" onclick="editTxn(\''+t.id+'\')" ><i class="fas fa-pen"></i></button>'
+        + '<div class="activity-amount" style="color:'+color+'">'+prefix2+' '+fmtMoney(cashAmt2)+'</div>'
+        + '<div style="display:flex;gap:4px">'
+        + '<button class="btn-ghost btn-sm" onclick="window.editTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-pen"></i></button>'
+        + '<button class="btn-danger btn-sm" onclick="window.deleteCashTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-trash"></i></button>'
         + '</div>'
         + '</div>';
     }).join('');
