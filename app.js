@@ -1322,6 +1322,10 @@ async function addSkOutstanding() {
   db.transactions.push({id:genId(),type:'sk_add_outstanding',amount,date,note:notes,createdAt:new Date().toISOString()});
   await saveDB(db);
   showToast('<i class="fas fa-check-circle"></i> Added to SK outstanding: '+fmtMoney(amount));
+  const adjAmt = document.getElementById('sk-adj-amt');
+  const adjNotes = document.getElementById('sk-adj-notes');
+  if (adjAmt) adjAmt.value = '';
+  if (adjNotes) adjNotes.value = '';
   renderSkGold();
 }
 
@@ -1691,27 +1695,42 @@ function shareWhatsApp(loanId) {
 // ==================== CASH TAB ====================
 function renderCash() {
   const db = getDB();
+  const today = new Date().toISOString().split('T')[0];
 
-  const cashInTxns = db.transactions.filter(t => t.payment && (t.payment.cash||0) > 0 &&
-    (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment'));
-  const cashIn = cashInTxns.reduce((s,t) => s+(t.payment.cash||0), 0);
+  const imap = {loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',
+    closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',
+    sk_payment:'fas fa-handshake',mediator_payment:'fas fa-handshake',
+    cash_adjustment:'fas fa-sliders'};
+  const lmap = {loan:'New Loan',topup:'Top-Up',interest:'Interest Received',
+    closure:'Loan Closed',partial_repayment:'Partial Repayment',
+    sk_payment:'SK Settlement',mediator_payment:'Mediator Settlement',
+    cash_adjustment:'Cash Adjustment'};
 
-  const cashOutTxns = db.transactions.filter(t => t.payment && (t.payment.cash||0) > 0 &&
-    (t.type==='loan'||t.type==='topup'));
-  const cashOut = cashOutTxns.reduce((s,t) => s+(t.payment.cash||0), 0);
+  // Inflow: interest, closure, partial_repayment, sk_payment, mediator_payment paid in cash
+  // + cash_adjustment with _cashDir === 'in'
+  const cashInTxns = db.transactions.filter(t => {
+    if (t.type === 'cash_adjustment') return (t._cashDir || 'in') === 'in';
+    return t.payment && (t.payment.cash||0) > 0 &&
+      (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment');
+  });
+  const cashIn = cashInTxns.reduce((s,t) => t.type==='cash_adjustment' ? s+(t.amount||0) : s+(t.payment?.cash||0), 0);
+
+  const cashOutTxns = db.transactions.filter(t => {
+    if (t.type === 'cash_adjustment') return (t._cashDir || 'in') === 'out';
+    return t.payment && (t.payment.cash||0) > 0 && (t.type==='loan'||t.type==='topup');
+  });
+  const cashOut = cashOutTxns.reduce((s,t) => t.type==='cash_adjustment' ? s+(t.amount||0) : s+(t.payment?.cash||0), 0);
+
+  // Also count adjustments in stats
+  const adjTxns = db.transactions.filter(t => t.type==='cash_adjustment');
+  const adjNet = adjTxns.reduce((s,t) => (t._cashDir||'in')==='in' ? s+(t.amount||0) : s-(t.amount||0), 0);
 
   const net = cashIn - cashOut;
   const netColor = net >= 0 ? 'var(--green)' : 'var(--red)';
 
   const allCashTxns = [...cashInTxns, ...cashOutTxns]
+    .filter((t,i,a) => a.findIndex(x=>x.id===t.id)===i) // deduplicate
     .sort((a,b) => new Date(b.createdAt||b.date) - new Date(a.createdAt||a.date));
-
-  const imap = {loan:'fas fa-plus',topup:'fas fa-arrow-up',interest:'fas fa-coins',
-    closure:'fas fa-lock',partial_repayment:'fas fa-rotate-left',
-    sk_payment:'fas fa-handshake',mediator_payment:'fas fa-handshake'};
-  const lmap = {loan:'New Loan',topup:'Top-Up',interest:'Interest Received',
-    closure:'Loan Closed',partial_repayment:'Partial Repayment',
-    sk_payment:'SK Settlement',mediator_payment:'Mediator Settlement'};
 
   const el = document.getElementById('cash-content');
   if (!el) return;
@@ -1721,6 +1740,19 @@ function renderCash() {
     + '<div class="stat-card"><div class="stat-icon" style="color:var(--red)"><i class="fas fa-arrow-up-from-bracket"></i></div><div class="stat-label">Cash Outflow</div><div class="stat-value" style="color:var(--red)">'+fmtMoney(cashOut)+'</div><div class="stat-sub">Given in cash</div></div>'
     + '<div class="stat-card" style="border-color:rgba(34,216,122,0.3)"><div class="stat-icon" style="color:'+netColor+'"><i class="fas fa-scale-balanced"></i></div><div class="stat-label">Net Cash Flow</div><div class="stat-value" style="color:'+netColor+'">'+fmtMoney(Math.abs(net))+'</div><div class="stat-sub">'+(net>=0?'Net positive':'Net negative')+'</div></div>'
     + '<div class="stat-card"><div class="stat-icon"><i class="fas fa-receipt"></i></div><div class="stat-label">Transactions</div><div class="stat-value">'+allCashTxns.length+'</div><div class="stat-sub">Cash entries</div></div>'
+    + (adjNet!==0?'<div class="stat-card"><div class="stat-icon" style="color:var(--gold)"><i class="fas fa-sliders"></i></div><div class="stat-label">Adjustments</div><div class="stat-value" style="color:var(--gold)">'+fmtMoney(Math.abs(adjNet))+'</div><div class="stat-sub">'+(adjNet>0?'Net added':'Net deducted')+'</div></div>':'')
+    + '</div>';
+
+  // Cash Adjustment Form
+  html += '<div class="form-card" style="margin-bottom:16px">'
+    + '<div class="form-section-title"><i class="fas fa-sliders" style="color:var(--gold)"></i> Add Cash Adjustment</div>'
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label>Amount (₹) *</label><input type="number" id="cash-adj-amt" class="input-field" placeholder="0"/></div>'
+    + '<div class="form-group"><label>Type</label><select id="cash-adj-type" class="input-field"><option value="in">+ Cash In (received)</option><option value="out">− Cash Out (given)</option></select></div>'
+    + '<div class="form-group"><label>Date *</label><input type="date" id="cash-adj-date" class="input-field" value="'+today+'"/></div>'
+    + '<div class="form-group"><label>Notes</label><input type="text" id="cash-adj-notes" class="input-field" placeholder="Reason for adjustment"/></div>'
+    + '</div>'
+    + '<div class="form-actions"><button class="btn-gold" onclick="saveCashAdjustment()"><i class="fas fa-plus-circle"></i> Add Adjustment</button></div>'
     + '</div>';
 
   html += '<div class="form-card"><div class="form-section-title"><i class="fas fa-clock-rotate-left"></i> Cash Transaction History</div>';
@@ -1728,23 +1760,31 @@ function renderCash() {
     html += allCashTxns.map(t => {
       const loan = db.loans.find(l=>l.id===t.loanId);
       const cust = loan ? db.customers.find(c=>c.id===loan.customerId) : null;
-      const name = (t.type==='sk_payment'||t.type==='mediator_payment') ? (t.mediatorName||'SK Gold') : (cust?cust.name:'—');
-      const isIn = (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment');
-      const cashAmt = t.payment?.cash || 0;
+      let name, isIn, cashAmt;
+      if (t.type === 'cash_adjustment') {
+        name = 'Cash Adjustment';
+        isIn = (t._cashDir || 'in') === 'in';
+        cashAmt = t.amount || 0;
+      } else {
+        name = (t.type==='sk_payment'||t.type==='mediator_payment') ? (t.mediatorName||'SK Gold') : (cust?cust.name:'—');
+        isIn = (t.type==='interest'||t.type==='closure'||t.type==='partial_repayment'||t.type==='sk_payment'||t.type==='mediator_payment');
+        cashAmt = t.payment?.cash || 0;
+      }
       const color = isIn ? 'var(--green)' : 'var(--red)';
       const prefix = isIn ? '+' : '−';
-      const iconCls = t.type==='partial_repayment'?'partial_repayment':t.type;
+      const iconCls = t.type==='partial_repayment'?'partial_repayment':t.type==='cash_adjustment'?'cash_adjustment':t.type;
       return '<div class="activity-item">'
-        + '<div class="activity-icon '+iconCls+'"><i class="'+(imap[t.type]||'fas fa-circle')+'"></i></div>'
+        + '<div class="activity-icon '+iconCls+'" style="'+(t.type==='cash_adjustment'?'background:rgba(232,190,90,0.15);color:var(--gold)':'')+'"><i class="'+(imap[t.type]||'fas fa-circle')+'"></i></div>'
         + '<div class="activity-text">'
         + '<div class="activity-name">'+name+' <span style="font-size:0.75rem;color:'+color+';font-weight:600">'+(lmap[t.type]||t.type)+'</span></div>'
         + '<div class="activity-meta">'+fmtDate(t.date)+(cust?' · '+cust.account:'')+(t.note?' · '+t.note:'')+'</div>'
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div class="activity-amount" style="color:'+color+'">'+prefix2+' '+fmtMoney(cashAmt2)+'</div>'
+        + '<div class="activity-amount" style="color:'+color+'">'+prefix+' '+fmtMoney(cashAmt)+'</div>'
         + '<div style="display:flex;gap:4px">'
-        + '<button class="btn-ghost btn-sm" onclick="window.editTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-pen"></i></button>'
+        + (t.type!=='cash_adjustment'?'<button class="btn-ghost btn-sm" onclick="window.editTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-pen"></i></button>':'')
         + '<button class="btn-danger btn-sm" onclick="window.deleteCashTxn(this.dataset.id)" data-id="'+t.id+'"><i class="fas fa-trash"></i></button>'
+        + '</div>'
         + '</div>'
         + '</div>';
     }).join('');
@@ -1755,6 +1795,44 @@ function renderCash() {
   el.innerHTML = html;
 }
 
+
+
+// ==================== CASH ADJUSTMENT ====================
+async function saveCashAdjustment() {
+  const amount = parseFloat(document.getElementById('cash-adj-amt')?.value);
+  const type   = document.getElementById('cash-adj-type')?.value || 'in';
+  const date   = document.getElementById('cash-adj-date')?.value;
+  const notes  = document.getElementById('cash-adj-notes')?.value.trim() || '';
+  if (!amount || !date) { alert('Fill Amount and Date'); return; }
+  const db = getDB();
+  db.transactions.push({
+    id: genId(), type: 'cash_adjustment', amount: Math.abs(amount),
+    _cashDir: type,
+    date, note: notes,
+    payment: type === 'in' ? {cash: amount, bank:0, sk_outstanding:0, other_outstanding:0}
+                           : {cash:0, bank:0, sk_outstanding:0, other_outstanding:0},
+    createdAt: new Date().toISOString()
+  });
+  await saveDB(db);
+  showToast('<i class="fas fa-check-circle"></i> Cash adjustment saved: ' + fmtMoney(amount));
+  const adjAmt = document.getElementById('cash-adj-amt');
+  const adjNotes = document.getElementById('cash-adj-notes');
+  if (adjAmt) adjAmt.value = '';
+  if (adjNotes) adjNotes.value = '';
+  renderCash();
+}
+
+function deleteCashTxn(id) {
+  const db = getDB();
+  const txn = db.transactions.find(t => t.id === id);
+  if (!txn) return;
+  if (!confirm('Delete this cash transaction?')) return;
+  db.transactions = db.transactions.filter(t => t.id !== id);
+  saveDB(db);
+  renderCash();
+  renderDashboard();
+  showToast('<i class="fas fa-check-circle"></i> Transaction deleted!');
+}
 
 // ==================== MEDIATOR TRANSACTION HISTORY HELPER ====================
 function renderMediatorTxnHistory(db, name) {
@@ -2062,5 +2140,5 @@ Object.assign(window,{
   genPDF,shareWhatsApp,toggleOtherSourceField,preselectTopup,quickInt,quickPart,
   showImgOptions,openImgInput,_doAddImg,
   renderOtherMediator,renderPaymentInfo,renderCash,saveMediatorPayment,deleteTxnFromModal,addNewMediator,saveCashAdjustment,deleteCashTxn,addMediatorOutstanding,addSkOutstanding,
-  toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist,renderCash
+  toggleSplitPayment,updateSplitPayment,updateSimplePayment,updateClTotal,populateMediatorDatalist
 });
