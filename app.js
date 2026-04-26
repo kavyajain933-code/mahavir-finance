@@ -1364,17 +1364,37 @@ function editTxn(id) {
   const db=getDB(); const t=db.transactions.find(x=>x.id===id); if(!t) return;
   const typeLabels={loan:'New Loan',topup:'Top-Up',interest:'Interest',closure:'Closure',partial_repayment:'Partial Repayment',sk_payment:'SK Payment',mediator_payment:'Mediator Payment'};
   document.getElementById('edit-modal-title').innerHTML=`<i class="fas fa-pen"></i> Edit ${typeLabels[t.type]||t.type}`;
+
+  // Helper: render payment breakdown read-only info
+  const pmtInfo = t.payment ? `<div class="form-group full-width" style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border2)">
+    <label style="color:var(--gold);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-wallet"></i> Payment Breakdown</label>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.85rem">
+      <div><span style="color:var(--text3)">💵 Cash:</span> <input type="number" id="et-pmt-cash" class="input-field" style="width:100%;margin-top:4px" value="${t.payment.cash||0}"/></div>
+      <div><span style="color:var(--text3)">🏦 Bank:</span> <input type="number" id="et-pmt-bank" class="input-field" style="width:100%;margin-top:4px" value="${t.payment.bank||0}"/></div>
+      <div><span style="color:var(--text3)">🤝 SK Gold:</span> <input type="number" id="et-pmt-sk" class="input-field" style="width:100%;margin-top:4px" value="${t.payment.sk_outstanding||0}"/></div>
+      <div><span style="color:var(--text3)">👤 Mediator:</span> <input type="number" id="et-pmt-other" class="input-field" style="width:100%;margin-top:4px" value="${t.payment.other_outstanding||0}"/></div>
+    </div>
+  </div>` : '';
+
   // For interest entries show full editor
   if (t.type !== 'interest') {
     // Generic editor for non-interest transactions
     document.getElementById('edit-modal-body').innerHTML=`
       <div class="form-group"><label>Date</label><input type="date" id="et-date" class="input-field" value="${t.date||''}"></div>
       <div class="form-group"><label>Amount (₹)</label><input type="number" id="et-amt" class="input-field" value="${t.amount||0}"></div>
-      <div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>`;
+      <div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>
+      ${pmtInfo}`;
     document.getElementById('edit-save-btn').onclick=async()=>{
       t.date=document.getElementById('et-date').value;
       t.amount=parseFloat(document.getElementById('et-amt').value)||0;
       t.note=document.getElementById('et-note').value.trim();
+      // Update payment object if it exists
+      if (t.payment) {
+        t.payment.cash  = parseFloat(document.getElementById('et-pmt-cash')?.value)||0;
+        t.payment.bank  = parseFloat(document.getElementById('et-pmt-bank')?.value)||0;
+        t.payment.sk_outstanding   = parseFloat(document.getElementById('et-pmt-sk')?.value)||0;
+        t.payment.other_outstanding= parseFloat(document.getElementById('et-pmt-other')?.value)||0;
+      }
       await saveDB(db);
       closeEditModal();
       // Refresh all relevant views
@@ -1394,7 +1414,7 @@ function editTxn(id) {
     return;
   }
   document.getElementById('edit-modal-title').innerHTML='<i class="fas fa-coins"></i> Edit Interest Entry';
-  document.getElementById('edit-modal-body').innerHTML=`<div class="form-group"><label>Date</label><input type="date" id="et-date" class="input-field" value="${t.date}"></div><div class="form-group"><label>From Date</label><input type="date" id="et-from" class="input-field" value="${t.fromDate||''}"></div><div class="form-group"><label>To Date</label><input type="date" id="et-to" class="input-field" value="${t.toDate||''}"></div><div class="form-group"><label>Calculated (₹)</label><input type="number" id="et-calc" class="input-field" value="${t.calculated||0}"></div><div class="form-group"><label>Received (₹)</label><input type="number" id="et-rcvd" class="input-field" value="${t.received||0}" oninput="etGap()"></div><div class="form-group"><label>Discount (₹)</label><input type="number" id="et-disc" class="input-field" value="${t.discount||0}"></div><div class="form-group"><label>Pay Later (₹)</label><input type="number" id="et-short" class="input-field" value="${t.shortfall||0}"></div><div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>`;
+  document.getElementById('edit-modal-body').innerHTML=`<div class="form-group"><label>Date</label><input type="date" id="et-date" class="input-field" value="${t.date}"></div><div class="form-group"><label>From Date</label><input type="date" id="et-from" class="input-field" value="${t.fromDate||''}"></div><div class="form-group"><label>To Date</label><input type="date" id="et-to" class="input-field" value="${t.toDate||''}"></div><div class="form-group"><label>Calculated (₹)</label><input type="number" id="et-calc" class="input-field" value="${t.calculated||0}"></div><div class="form-group"><label>Received (₹)</label><input type="number" id="et-rcvd" class="input-field" value="${t.received||0}" oninput="etGap()"></div><div class="form-group"><label>Discount (₹)</label><input type="number" id="et-disc" class="input-field" value="${t.discount||0}"></div><div class="form-group"><label>Pay Later (₹)</label><input type="number" id="et-short" class="input-field" value="${t.shortfall||0}"></div><div class="form-group full-width"><label>Notes</label><input type="text" id="et-note" class="input-field" value="${t.note||''}"></div>${pmtInfo}`;
   document.getElementById('edit-save-btn').onclick=async()=>{
     t.date=document.getElementById('et-date').value;
     t.fromDate=document.getElementById('et-from').value;
@@ -1404,6 +1424,13 @@ function editTxn(id) {
     t.discount=parseFloat(document.getElementById('et-disc').value)||0;
     t.shortfall=parseFloat(document.getElementById('et-short').value)||0;
     t.note=document.getElementById('et-note').value.trim();
+    // Update payment object if it exists
+    if (t.payment) {
+      t.payment.cash  = parseFloat(document.getElementById('et-pmt-cash')?.value)||0;
+      t.payment.bank  = parseFloat(document.getElementById('et-pmt-bank')?.value)||0;
+      t.payment.sk_outstanding   = parseFloat(document.getElementById('et-pmt-sk')?.value)||0;
+      t.payment.other_outstanding= parseFloat(document.getElementById('et-pmt-other')?.value)||0;
+    }
     await saveDB(db);
     closeEditModal();
     renderDashboard();
